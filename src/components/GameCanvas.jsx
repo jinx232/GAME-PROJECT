@@ -47,6 +47,9 @@ export default function GameCanvas({ config, onUIUpdate, isPaused, isRestartTrig
       }
     });
 
+    // Use the new setMap method before initializing
+    engine.setMap(config.map);
+
     engineRef.current = engine;
     window.gameEngine = engine;
     engine.init();
@@ -74,7 +77,7 @@ export default function GameCanvas({ config, onUIUpdate, isPaused, isRestartTrig
         engineRef.current.cleanUp();
       }
     };
-  }, [config]); // Only config — NOT isPaused
+  }, [config, onUIUpdate]); // Only config — NOT isPaused
 
   // Handle restart triggers
   useEffect(() => {

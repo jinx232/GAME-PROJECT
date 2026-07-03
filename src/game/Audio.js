@@ -551,6 +551,73 @@ export class SoundSynth {
     sub.stop(now + 0.5);
   }
 
+  playParry() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx || !this.masterGain) return;
+
+    // Sharp metallic deflect clang — high-pitched resonant ring with fast transient
+    const now = this.ctx.currentTime;
+
+    // Layer 1: Primary high clang
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(1800, now);
+    osc1.frequency.exponentialRampToValueAtTime(900, now + 0.18);
+    gain1.gain.setValueAtTime(0.38, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+    osc1.start(now);
+    osc1.stop(now + 0.25);
+
+    // Layer 2: Upper harmonic shimmer
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(2800, now);
+    osc2.frequency.exponentialRampToValueAtTime(1400, now + 0.12);
+    gain2.gain.setValueAtTime(0.18, now);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain);
+    osc2.start(now);
+    osc2.stop(now + 0.18);
+
+    // Layer 3: Deep mid-frequency resonance ring
+    const osc3 = this.ctx.createOscillator();
+    const gain3 = this.ctx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(650, now);
+    osc3.frequency.exponentialRampToValueAtTime(380, now + 0.28);
+    gain3.gain.setValueAtTime(0.25, now);
+    gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+    osc3.connect(gain3);
+    gain3.connect(this.masterGain);
+    osc3.start(now);
+    osc3.stop(now + 0.32);
+
+    // Short noise burst for impact texture
+    const bufSize = Math.floor(this.ctx.sampleRate * 0.04);
+    const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 3000;
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.14, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+    noise.start(now);
+    noise.stop(now + 0.05);
+  }
+
   playWeaponPickup() {
     if (!this.enabled) return;
     this.init();

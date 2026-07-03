@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
-import Menu from './components/Menu';
+import MainMenu from './game/MainMenu';
 import MobileControls from './components/MobileControls';
 import { RotateCcw, Home, Play, Pause, Smartphone, Volume2, VolumeX } from 'lucide-react';
 
@@ -103,7 +103,14 @@ export default function App() {
       
       {!inGame ? (
         /* START MENU SCREEN */
-        <Menu onStartGame={handleStartGame} savedConfig={config} />
+        <MainMenu
+          onStartGame={(menuConfig) => handleStartGame({
+            ...config,
+            ...menuConfig,
+          })}
+          savedConfig={config}
+          maps={['cyberpunk_dojo', 'neon_rooftop', 'zen_garden', 'magma_cavern', 'stormy_temple']}
+        />
       ) : (
         /* GAMEPLAY CONTAINER */
         <div className="game-wrapper relative w-full max-w-4xl aspect-video flex items-center justify-center">
