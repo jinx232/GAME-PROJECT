@@ -2,34 +2,59 @@ import React, { useState } from 'react';
 import './MainMenu.css';
 
 const mapDescriptions = {
-  cyberpunk_dojo: 'A neon dojo full of glowing lanterns and electric energy.',
-  neon_rooftop: 'A high-rise rooftop shimmering with lightning and skyline lights.',
-  zen_garden: 'A quiet bamboo garden with calm stones and drifting petals.',
-  magma_cavern: 'A molten cavern filled with fire, smoke, and raw heat.',
-  stormy_temple: 'A storm-lashed temple pulsing with thunder and rain.',
+  cyberpunk_dojo:  { text: 'A neon dojo full of glowing lanterns and electric energy.',    hazard: 'none' },
+  neon_rooftop:    { text: 'A high-rise rooftop shimmering with lightning and skyline.',   hazard: 'none' },
+  zen_garden:      { text: 'A bamboo garden with calm stones, petals, and wind gusts.',    hazard: '💨 Wind Gusts' },
+  magma_cavern:    { text: 'A molten cavern filled with fire, smoke, and raw heat.',        hazard: '🔥 Lava Spouts' },
+  stormy_temple:   { text: 'A storm-lashed temple pulsing with thunder and rain.',          hazard: '⚡ Lightning Strikes' },
 };
 
+const MODES = [
+  {
+    id: 'p1_vs_cpu',
+    label: 'VS CPU',
+    icon: '🤖',
+    desc: 'Classic 1v1 against the CPU. First to 2 rounds wins.',
+    color: '#00f0ff',
+  },
+  {
+    id: 'p1_vs_p2',
+    label: 'VS PLAYER',
+    icon: '⚔️',
+    desc: 'Local 2-player duel on the same keyboard.',
+    color: '#ec4899',
+  },
+  {
+    id: 'survival',
+    label: 'SURVIVAL',
+    icon: '🌊',
+    desc: 'Fight endless CPU waves. Each win heals you. How far can you go?',
+    color: '#f97316',
+  },
+  {
+    id: 'practice',
+    label: 'PRACTICE',
+    icon: '🥋',
+    desc: 'Train in the Dojo. Infinite health, input log, and dummy controls.',
+    color: '#a78bfa',
+  },
+];
+
 const MainMenu = ({ onStartGame, maps, savedConfig }) => {
-  const [gameMode, setGameMode] = useState(savedConfig?.mode || 'p1_vs_cpu');
-  const [selectedMap, setSelectedMap] = useState(savedConfig?.map || maps[0]);
-  const [weaponSpawnEnabled, setWeaponSpawnEnabled] = useState(
-    savedConfig?.weaponSpawnEnabled !== undefined ? savedConfig.weaponSpawnEnabled : true
-  );
-  const [difficulty, setDifficulty] = useState(savedConfig?.difficulty || 'medium');
+  const [gameMode, setGameMode]             = useState(savedConfig?.mode || 'p1_vs_cpu');
+  const [selectedMap, setSelectedMap]       = useState(savedConfig?.map || maps[0]);
+  const [weaponSpawnEnabled, setWeaponSpawn]= useState(savedConfig?.weaponSpawnEnabled !== undefined ? savedConfig.weaponSpawnEnabled : true);
+  const [difficulty, setDifficulty]         = useState(savedConfig?.difficulty || 'medium');
 
   const handleStart = () => {
-    onStartGame({
-      mode: gameMode,
-      map: selectedMap,
-      weaponSpawnEnabled,
-      difficulty,
-    });
+    onStartGame({ mode: gameMode, map: selectedMap, weaponSpawnEnabled, difficulty });
   };
 
-  const formatMapName = (mapId) => mapId
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+  const formatMapName = (id) =>
+    id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+  const currentMode = MODES.find(m => m.id === gameMode);
+  const hideDifficulty = gameMode === 'practice';
 
   return (
     <div className="main-menu-container">
@@ -38,64 +63,64 @@ const MainMenu = ({ onStartGame, maps, savedConfig }) => {
           <div className="menu-badge">⚔️</div>
           <div>
             <h1 className="game-title">Stickman Duelist</h1>
-            <p className="game-subtitle">Choose your arena and set the fight rules before the match begins.</p>
+            <p className="game-subtitle">Choose your mode, arena, and settings before the match begins.</p>
           </div>
         </div>
 
         <div className="menu-grid">
+          {/* LEFT PANEL */}
           <div className="menu-panel">
+
+            {/* Mode Selection */}
             <div className="menu-section">
               <h2>Game Mode</h2>
-              <div className="button-group">
-                <button
-                  className={`menu-button ${gameMode === 'p1_vs_cpu' ? 'active' : ''}`}
-                  onClick={() => setGameMode('p1_vs_cpu')}
-                >
-                  Player vs CPU
-                </button>
-                <button
-                  className={`menu-button ${gameMode === 'p1_vs_p2' ? 'active' : ''}`}
-                  onClick={() => setGameMode('p1_vs_p2')}
-                >
-                  Player vs Player
-                </button>
-              </div>
-            </div>
-
-            <div className="menu-section">
-              <h2>Weapons</h2>
-              <div className="button-group">
-                <button
-                  className={`menu-button ${weaponSpawnEnabled ? 'active' : ''}`}
-                  onClick={() => setWeaponSpawnEnabled(true)}
-                >
-                  On
-                </button>
-                <button
-                  className={`menu-button ${!weaponSpawnEnabled ? 'active' : ''}`}
-                  onClick={() => setWeaponSpawnEnabled(false)}
-                >
-                  Off
-                </button>
-              </div>
-            </div>
-
-            <div className="menu-section">
-              <h2>Difficulty</h2>
-              <div className="button-group">
-                {['easy', 'medium', 'hard'].map((level) => (
+              <div className="mode-grid">
+                {MODES.map(m => (
                   <button
-                    key={level}
-                    className={`menu-button ${difficulty === level ? 'active' : ''}`}
-                    onClick={() => setDifficulty(level)}
+                    key={m.id}
+                    className={`mode-card ${gameMode === m.id ? 'active' : ''}`}
+                    style={{ '--mode-color': m.color }}
+                    onClick={() => setGameMode(m.id)}
                   >
-                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                    <span className="mode-icon">{m.icon}</span>
+                    <span className="mode-label">{m.label}</span>
                   </button>
                 ))}
               </div>
+              {currentMode && (
+                <p className="mode-desc">{currentMode.desc}</p>
+              )}
             </div>
+
+            {/* Weapons */}
+            <div className="menu-section">
+              <h2>Weapons</h2>
+              <div className="button-group">
+                <button className={`menu-button ${weaponSpawnEnabled ? 'active' : ''}`} onClick={() => setWeaponSpawn(true)}>On</button>
+                <button className={`menu-button ${!weaponSpawnEnabled ? 'active' : ''}`} onClick={() => setWeaponSpawn(false)}>Off</button>
+              </div>
+            </div>
+
+            {/* Difficulty (hidden in practice) */}
+            {!hideDifficulty && (
+              <div className="menu-section">
+                <h2>Difficulty</h2>
+                <div className="button-group">
+                  {['easy', 'medium', 'hard'].map((level) => (
+                    <button
+                      key={level}
+                      className={`menu-button ${difficulty === level ? 'active' : ''}`}
+                      onClick={() => setDifficulty(level)}
+                    >
+                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* RIGHT PANEL */}
           <div className="menu-panel menu-panel-secondary">
             <div className="menu-section">
               <h2>Select Arena</h2>
@@ -110,13 +135,46 @@ const MainMenu = ({ onStartGame, maps, savedConfig }) => {
                   </button>
                 ))}
               </div>
-              <p className="map-note">{mapDescriptions[selectedMap]}</p>
+              {mapDescriptions[selectedMap] && (
+                <>
+                  <p className="map-note">{mapDescriptions[selectedMap].text}</p>
+                  {mapDescriptions[selectedMap].hazard !== 'none' && (
+                    <p className="map-hazard-badge">Hazard: {mapDescriptions[selectedMap].hazard}</p>
+                  )}
+                </>
+              )}
             </div>
+
+            {/* Practice info block */}
+            {gameMode === 'practice' && (
+              <div className="practice-info-panel">
+                <p className="practice-info-title">🥋 Practice Dojo Features</p>
+                <ul className="practice-info-list">
+                  <li>♾️ Infinite health (both fighters)</li>
+                  <li>🃏 Input log shown on screen</li>
+                  <li>🤖 Dummy stands still by default</li>
+                  <li>⏱️ No round timer</li>
+                </ul>
+              </div>
+            )}
+
+            {/* Survival info block */}
+            {gameMode === 'survival' && (
+              <div className="survival-info-panel">
+                <p className="survival-info-title">🌊 Survival Mode</p>
+                <ul className="survival-info-list">
+                  <li>⬆️ CPU gets harder each wave</li>
+                  <li>❤️ +30 HP restored after each win</li>
+                  <li>🗺️ Random arena each wave</li>
+                  <li>🏆 High score saved locally</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 
         <button className="start-game-button" onClick={handleStart}>
-          FIGHT!
+          {gameMode === 'practice' ? 'ENTER DOJO' : gameMode === 'survival' ? 'START SURVIVAL' : 'FIGHT!'}
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Swords, Zap } from 'lucide-react';
+import './MobileControls.css';
 
 export default function MobileControls({ inputHandler, p1Chi = 0 }) {
   
@@ -19,12 +20,12 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
   };
 
   return (
-    <div className="mobile-controls-overlay select-none absolute inset-0 w-full h-full pointer-events-none flex justify-between items-end p-6 md:p-10">
+    <div className="mobile-controls-overlay select-none">
       
       {/* LEFT SIDE: MOVEMENT D-PAD */}
-      <div className="movement-pad pointer-events-auto relative w-36 h-36 flex items-center justify-center opacity-75 active:opacity-90 transition-opacity">
+      <div className="movement-pad">
         {/* Background circle */}
-        <div className="absolute inset-0 bg-zinc-950/40 border border-zinc-800 rounded-full backdrop-blur-sm pointer-events-none" />
+        <div className="dpad-bg" />
         
         {/* D-Pad Buttons */}
         {/* JUMP (W) */}
@@ -33,7 +34,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('jump', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'jump', true); }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'jump', false); }}
-          className="absolute top-1 w-11 h-11 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center font-black text-lg text-zinc-300 active:bg-cyan-500/30 active:border-cyan-400 active:text-cyan-200 transition-colors"
+          className="dpad-btn dpad-btn-up"
           style={{ touchAction: 'none' }}
         >
           ▲
@@ -45,7 +46,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('left', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'left', true); }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'left', false); }}
-          className="absolute left-1 w-11 h-11 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center font-black text-lg text-zinc-300 active:bg-cyan-500/30 active:border-cyan-400 active:text-cyan-200 transition-colors"
+          className="dpad-btn dpad-btn-left"
           style={{ touchAction: 'none' }}
         >
           ◀
@@ -57,7 +58,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('right', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'right', true); }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'right', false); }}
-          className="absolute right-1 w-11 h-11 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center font-black text-lg text-zinc-300 active:bg-cyan-500/30 active:border-cyan-400 active:text-cyan-200 transition-colors"
+          className="dpad-btn dpad-btn-right"
           style={{ touchAction: 'none' }}
         >
           ▶
@@ -69,18 +70,18 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('crouch', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) { inputHandler.setMobileInput(1, 'crouch', true); inputHandler.setMobileInput(1, 'block', true); } }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) { inputHandler.setMobileInput(1, 'crouch', false); inputHandler.setMobileInput(1, 'block', false); } }}
-          className="absolute bottom-1 w-11 h-11 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center font-black text-lg text-zinc-300 active:bg-cyan-500/30 active:border-cyan-400 active:text-cyan-200 transition-colors"
+          className="dpad-btn dpad-btn-down"
           style={{ touchAction: 'none' }}
         >
           ▼
         </button>
 
         {/* Center core */}
-        <div className="w-5 h-5 bg-zinc-950 rounded-full border border-zinc-800 z-10 pointer-events-none" />
+        <div className="dpad-center" />
       </div>
 
       {/* RIGHT SIDE: ACTION BUTTONS */}
-      <div className="action-pad pointer-events-auto relative w-48 h-48 flex items-center justify-center opacity-80 active:opacity-90">
+      <div className="action-pad">
         
         {/* PUNCH BUTTON (J) */}
         <button
@@ -88,7 +89,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('punch', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'punch', true); }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'punch', false); }}
-          className="absolute bottom-1 right-1 w-16 h-16 bg-cyan-600 border border-cyan-400 rounded-full flex items-center justify-center font-extrabold text-sm text-white shadow-lg active:bg-cyan-500 active:scale-95 transition-all"
+          className="action-btn action-btn-punch"
           style={{ touchAction: 'none' }}
         >
           PUNCH
@@ -100,7 +101,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('kick', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'kick', true); }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'kick', false); }}
-          className="absolute bottom-16 right-16 w-16 h-16 bg-pink-600 border border-pink-400 rounded-full flex items-center justify-center font-extrabold text-sm text-white shadow-lg active:bg-pink-500 active:scale-95 transition-all"
+          className="action-btn action-btn-kick"
           style={{ touchAction: 'none' }}
         >
           KICK
@@ -112,7 +113,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('sweep', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'sweep', true); }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'sweep', false); }}
-          className="absolute bottom-1 right-20 w-12 h-12 bg-zinc-900 border border-zinc-700 rounded-full flex items-center justify-center font-extrabold text-[10px] text-zinc-300 active:bg-zinc-800 active:scale-95 transition-all"
+          className="action-btn action-btn-sweep"
           style={{ touchAction: 'none' }}
         >
           SWEEP
@@ -124,7 +125,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
           onTouchEnd={(e) => handleTouchEnd('pickup', e)}
           onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'pickup', true); }}
           onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'pickup', false); }}
-          className="absolute top-4 right-1 w-12 h-12 bg-amber-600 border border-amber-400 rounded-full flex items-center justify-center font-black text-white shadow-md active:bg-amber-500 active:scale-95 transition-all"
+          className="action-btn action-btn-weapon"
           style={{ touchAction: 'none' }}
         >
           <Swords className="w-5 h-5" />
@@ -137,7 +138,7 @@ export default function MobileControls({ inputHandler, p1Chi = 0 }) {
             onTouchEnd={(e) => handleTouchEnd('special', e)}
             onMouseDown={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'special', true); }}
             onMouseUp={(e) => { e.preventDefault(); if (inputHandler) inputHandler.setMobileInput(1, 'special', false); }}
-            className="absolute top-0 right-16 w-14 h-14 bg-gradient-to-r from-yellow-500 to-amber-500 border-2 border-white rounded-full flex items-center justify-center font-extrabold text-xs text-black shadow-glow animate-pulse active:scale-95 transition-all z-20"
+            className="action-btn action-btn-chi"
             style={{ touchAction: 'none' }}
           >
             <Zap className="w-6 h-6 fill-current animate-bounce" />

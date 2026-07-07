@@ -1,4 +1,4 @@
-import { Stickman, STATES } from './Stickman';
+import { Stickman, STATES, triggerHaptics } from './Stickman';
 import { EffectSystem } from './Effects';
 import { InputHandler } from './InputHandler';
 import { Weapon } from './Weapon';
@@ -11,10 +11,10 @@ export class GameEngine {
     this.ctx = canvas.getContext('2d');
     
     // Configurations
-    this.mode = config.mode || 'p1_vs_cpu'; // 'p1_vs_cpu', 'p1_vs_p2'
+    this.mode = config.mode || 'p1_vs_cpu'; // 'p1_vs_cpu', 'p1_vs_p2', 'practice', 'survival'
     this.difficulty = config.difficulty || 'medium';
-    this.p1Color = config.p1Color || '#00f0ff'; // Cyan
-    this.p2Color = config.p2Color || '#ec4899'; // Pink/Magenta
+    this.p1Color = config.p1Color || '#00f0ff';
+    this.p2Color = config.p2Color || '#ec4899';
     this.p1Name = config.p1Name || 'Dragon P1';
     this.p2Name = config.p2Name || (this.mode === 'p1_vs_cpu' ? 'Tiger CPU' : 'Snake P2');
     this.weaponSpawnEnabled = config.weaponSpawnEnabled !== false;
@@ -36,72 +36,132 @@ export class GameEngine {
     this.p2 = null;
 
     // Game State
-    this.gameState = 'countdown'; // 'countdown', 'fight', 'ko', 'gameover'
+    this.gameState = 'countdown';
     this.roundTimer = 99;
     this.timerInterval = null;
     this.round = 1;
     this.p1Wins = 0;
     this.p2Wins = 0;
-    this.winner = null; // 1, 2, or null
+    this.winner = null;
     this.koTimer = 0;
     this.fightText = 'STICKMAN DUELIST';
     this.fightTextOpacity = 1.0;
-    
-    // Ambient dust particles for atmospheric look
+
+    // Ambient dust
     this.ambientDust = [];
     this.initAmbientDust();
 
     // Weapon spawn counter
-    this.weaponSpawnTimer = 300 + Math.random() * 300; // 5-10 seconds
+    this.weaponSpawnTimer = 300 + Math.random() * 300;
 
-    this.onUIEvent = config.onUIEvent || (() => {}); // Callback to communicate transitions to React
-
-    // Screen impact flash duration
+    this.onUIEvent = config.onUIEvent || (() => {});
     this.impactFlashDuration = 0;
 
     // Available maps
     this.maps = ['cyberpunk_dojo', 'neon_rooftop', 'zen_garden', 'magma_cavern', 'stormy_temple'];
     this.currentMap = 'cyberpunk_dojo';
+
+    // ─── SURVIVAL MODE ───────────────────────────────────────────────────
+    this.survivalWave = 1;
+    this.survivalHighScore = parseInt(localStorage.getItem('survivalHighScore') || '0', 10);
+
+    // ─── PRACTICE MODE ───────────────────────────────────────────────────
+    this.practiceInfiniteHealth = true;
+    this.practiceInfiniteChi = false;
+    this.practiceDummyMode = 'stand'; // 'stand', 'block', 'crouch', 'jump'
+    this.inputLog = []; // Rolling log of last 8 p1 input events
+    this._lastP1Inputs = {};
+
+    // ─── PLATFORMS ───────────────────────────────────────────────────────
+    this.platforms = []; // { x, y, width, height }
+
+    // ─── HAZARDS ─────────────────────────────────────────────────────────
+    this.hazardTimer = 0;
+    this.activeHazards = []; // { type, x, y, timer, warningTimer }
   }
 
   setMap(mapName) {
     if (this.maps.includes(mapName)) {
       this.currentMap = mapName;
     }
+    // Update platform positions for this map
+    this.platforms = this.getPlatformsForMap(this.currentMap);
+  }
+
+  getPlatformsForMap(map) {
+    const gY = this.groundY;
+    switch (map) {
+      case 'cyberpunk_dojo':
+        return [
+          { x: this.width * 0.2 - 55, y: gY - 130, width: 110, height: 14 },
+          { x: this.width * 0.8 - 55, y: gY - 130, width: 110, height: 14 },
+          { x: this.width * 0.5 - 65, y: gY - 200, width: 130, height: 14 },
+        ];
+      case 'neon_rooftop':
+        return [
+          { x: this.width * 0.15, y: gY - 110, width: 100, height: 12 },
+          { x: this.width * 0.75, y: gY - 110, width: 100, height: 12 },
+        ];
+      case 'zen_garden':
+        return [
+          { x: this.width * 0.25 - 50, y: gY - 150, width: 100, height: 14 },
+          { x: this.width * 0.75 - 50, y: gY - 150, width: 100, height: 14 },
+          { x: this.width * 0.5 - 45, y: gY - 220, width: 90, height: 12 },
+        ];
+      case 'magma_cavern':
+        return [
+          { x: this.width * 0.2, y: gY - 120, width: 90, height: 14 },
+          { x: this.width * 0.7, y: gY - 120, width: 90, height: 14 },
+        ];
+      case 'stormy_temple':
+        return [
+          { x: this.width * 0.3, y: gY - 160, width: 120, height: 14 },
+          { x: this.width * 0.55, y: gY - 110, width: 90, height: 12 },
+        ];
+      default:
+        return [];
+    }
   }
 
   init() {
-
+    const isAI = this.mode === 'p1_vs_cpu' || this.mode === 'survival';
     this.p1 = new Stickman(this.width * 0.25, this.groundY, 1, this.p1Color, this.p1Name, false);
-    this.p2 = new Stickman(this.width * 0.75, this.groundY, 2, this.p2Color, this.p2Name, this.mode === 'p1_vs_cpu');
+    this.p2 = new Stickman(this.width * 0.75, this.groundY, 2, this.p2Color, this.p2Name, isAI);
 
-    // Give players cross-references to engine lists for AI checking
     this.p1.engineProjectiles = this.effects.blasts;
     this.p2.engineProjectiles = this.effects.blasts;
-
-    // Share sound system with players so they can trigger attack SFX
     this.p1.soundSystem = this.sound;
     this.p2.soundSystem = this.sound;
-
-    // Set up impact flash callbacks
     this.p1._onImpactFlash = () => { this.impactFlashDuration = 8; };
     this.p2._onImpactFlash = () => { this.impactFlashDuration = 8; };
 
     this.weapons = [];
+    this.activeHazards = [];
+    this.hazardTimer = 0;
     this.gameState = 'countdown';
-    this.fightText = this.round === 1 ? 'STICKMAN DUELIST' : `ROUND ${this.round}`;
+
+    if (this.mode === 'survival') {
+      this.fightText = this.survivalWave === 1 ? 'SURVIVAL MODE' : `WAVE ${this.survivalWave}`;
+    } else if (this.mode === 'practice') {
+      this.fightText = 'PRACTICE DOJO';
+    } else {
+      this.fightText = this.round === 1 ? 'STICKMAN DUELIST' : `ROUND ${this.round}`;
+    }
     this.fightTextOpacity = 1.0;
-    this.roundTimer = 99;
-    
-    this.startTimer();
+    this.roundTimer = this.mode === 'practice' ? 999 : 99;
 
-    // Play round start gong
+    // In survival, scale difficulty with wave
+    if (this.mode === 'survival') {
+      const difficulties = ['easy', 'medium', 'medium', 'hard', 'hard'];
+      const waveDiff = difficulties[Math.min(this.survivalWave - 1, difficulties.length - 1)];
+      this.ai = new AIController(waveDiff);
+    }
+
+    if (this.mode !== 'practice') this.startTimer();
     this.sound.playGong();
-
-    // Re-initialize ambient dust for the new map
     this.initAmbientDust();
+    this.platforms = this.getPlatformsForMap(this.currentMap);
 
-    // Spawn initial weapons optionally
     if (this.weaponSpawnEnabled) {
       this.weapons.push(new Weapon(this.width * 0.35, 100, 'sword'));
       this.weapons.push(new Weapon(this.width * 0.65, 100, 'staff'));
@@ -234,8 +294,16 @@ export class GameEngine {
       p2Wins: this.p2Wins,
       gameState: this.gameState,
       winner: this.winner,
-      fightText: this.fightText
+      fightText: this.fightText,
+      survivalWave: this.survivalWave,
+      survivalHighScore: this.survivalHighScore,
+      mode: this.mode,
     });
+  }
+
+  logInput(label) {
+    this.inputLog.push({ label, t: Date.now() });
+    if (this.inputLog.length > 8) this.inputLog.shift();
   }
 
   update() {
@@ -273,24 +341,51 @@ export class GameEngine {
     const p1Inputs = this.input.getP1Inputs();
     let p2Inputs;
 
-    if (this.p2.isAI) {
+    // ── Practice mode dummy AI override ──────────────────────────────────
+    if (this.mode === 'practice') {
+      switch (this.practiceDummyMode) {
+        case 'block':  p2Inputs = { left:false,right:false,jump:false,crouch:false,block:true,punch:false,kick:false,sweep:false,special:false,pickup:false }; break;
+        case 'crouch': p2Inputs = { left:false,right:false,jump:false,crouch:true,block:false,punch:false,kick:false,sweep:false,special:false,pickup:false }; break;
+        case 'jump':   p2Inputs = { left:false,right:false,jump:this.p2.isGrounded,crouch:false,block:false,punch:false,kick:false,sweep:false,special:false,pickup:false }; break;
+        default:       p2Inputs = { left:false,right:false,jump:false,crouch:false,block:false,punch:false,kick:false,sweep:false,special:false,pickup:false }; break;
+      }
+    } else if (this.p2.isAI) {
       p2Inputs = this.ai.update(this.p2, this.p1, this.weapons);
     } else {
       p2Inputs = this.input.getP2Inputs();
+    }
+
+    // ── Track p1 input changes for practice log ──────────────────────────
+    if (this.mode === 'practice') {
+      const labels = { punch:'PUNCH', kick:'KICK', sweep:'SWEEP', special:'CHI', jump:'JUMP', left:'←', right:'→', crouch:'↓', block:'BLOCK', pickup:'ITEM' };
+      for (const [key, label] of Object.entries(labels)) {
+        if (p1Inputs[key] && !this._lastP1Inputs[key]) this.logInput(label);
+      }
+      this._lastP1Inputs = { ...p1Inputs };
     }
 
     // 2. Apply player inputs based on game state
     if (this.gameState === 'fight') {
       this.applyInputs(this.p1, p1Inputs);
       this.applyInputs(this.p2, p2Inputs);
+
+      // Practice: keep health/chi at max
+      if (this.mode === 'practice') {
+        if (this.practiceInfiniteHealth) {
+          this.p1.health = Math.max(this.p1.health, this.p1.maxHealth);
+          this.p2.health = Math.max(this.p2.health, this.p2.maxHealth);
+        }
+        if (this.practiceInfiniteChi) {
+          this.p1.chi = this.p1.maxChi;
+          this.p2.chi = this.p2.maxChi;
+        }
+      }
     } else if (this.gameState === 'countdown') {
-      // Allow blocking or crouching during countdown, but no attacks or movement
       this.p1.setState(p1Inputs.crouch ? STATES.CROUCH : STATES.IDLE);
       this.p2.setState(p2Inputs.crouch ? STATES.CROUCH : STATES.IDLE);
       this.p1.vel.x = 0;
       this.p2.vel.x = 0;
 
-      // Handle fight banner fade out
       this.fightTextOpacity -= 0.015;
       if (this.fightTextOpacity <= 0) {
         this.gameState = 'fight';
@@ -303,18 +398,20 @@ export class GameEngine {
       this.p1.vel.x *= 0.9;
       this.p2.vel.x *= 0.9;
 
-      if (this.koTimer > 180) { // 3 seconds after KO
+      if (this.koTimer > 180) {
         this.handleRoundEnd();
       }
     }
 
-    // 3. Update physics on players
+    // 3. Update physics on players (with platform support)
     this.p1.update(this.groundY, this.width, this.p2, this.effects);
     this.p2.update(this.groundY, this.width, this.p1, this.effects);
+    this.applyPlatformCollisions(this.p1);
+    this.applyPlatformCollisions(this.p2);
 
     // 4. Player-to-player collision pushing
     const distBetween = Math.abs(this.p1.pos.x - this.p2.pos.x);
-    if (distBetween < 30 && this.p1.isGrounded && this.p2.isGrounded && 
+    if (distBetween < 30 && this.p1.isGrounded && this.p2.isGrounded &&
         this.p1.state !== STATES.DEAD && this.p2.state !== STATES.DEAD) {
       const overlap = 30 - distBetween;
       const pushDir = this.p1.pos.x < this.p2.pos.x ? -1 : 1;
@@ -322,33 +419,37 @@ export class GameEngine {
       this.p2.pos.x -= pushDir * overlap * 0.5;
     }
 
-    // 5. Update weapons on the ground
+    // 5. Update weapons
     this.weapons.forEach(w => w.update(this.groundY, this.width));
 
-    // 6. Update effects and projectiles
+    // 6. Update effects
     this.effects.update(this.width, this.height);
 
     // 7. Check projectile collisions
     this.checkProjectileCollisions();
 
-    // 8. Auto weapon spawning in combat
+    // 8. Auto weapon spawning
     if (this.weaponSpawnEnabled && this.gameState === 'fight') {
       this.weaponSpawnTimer--;
       if (this.weaponSpawnTimer <= 0) {
         this.spawnRandomWeapon();
-        this.weaponSpawnTimer = 400 + Math.random() * 400; // 6-12 seconds
+        this.weaponSpawnTimer = 400 + Math.random() * 400;
       }
     }
 
-    // 9. Check win conditions
+    // 9. Stage Hazards
+    if (this.gameState === 'fight') {
+      this.updateHazards();
+    }
+
+    // 10. Check win conditions
     if (this.gameState === 'fight') {
       if (this.p1.health <= 0 || this.p2.health <= 0) {
         this.gameState = 'ko';
         this.koTimer = 0;
         this.stopTimer();
-        
-        // KO sound + screen shake
         this.sound.playKO();
+        triggerHaptics([200, 80, 200]);
 
         if (this.p1.health <= 0 && this.p2.health <= 0) {
           this.fightText = 'DOUBLE KO!';
@@ -359,7 +460,7 @@ export class GameEngine {
           this.fightText = 'KO!';
           this.p1Wins++;
         }
-        
+
         this.fightTextOpacity = 1.0;
         this.effects.triggerShake(8, 20);
         this.notifyUI();
@@ -623,26 +724,51 @@ export class GameEngine {
   handleRoundEnd() {
     this.stopTimer();
 
-    // Check if match over (First to 2 wins)
+    // ── SURVIVAL MODE ────────────────────────────────────────────────────
+    if (this.mode === 'survival') {
+      if (this.p1.health <= 0) {
+        // Player died – game over, save high score
+        if (this.survivalWave > this.survivalHighScore) {
+          this.survivalHighScore = this.survivalWave;
+          localStorage.setItem('survivalHighScore', String(this.survivalHighScore));
+        }
+        this.gameState = 'gameover';
+        this.winner = 2;
+        this.fightText = `FELL ON WAVE ${this.survivalWave}`;
+        this.fightTextOpacity = 1.0;
+        this.sound.playLose();
+        this.notifyUI();
+      } else {
+        // CPU died – next wave!
+        this.survivalWave++;
+        // Heal player a bit
+        const healAmount = 30;
+        this.p1.health = Math.min(this.p1.health + healAmount, this.p1.maxHealth);
+        // Pick a random new map
+        const nextMap = this.maps[Math.floor(Math.random() * this.maps.length)];
+        this.currentMap = nextMap;
+        this.fightText = `WAVE ${this.survivalWave}!`;
+        this.fightTextOpacity = 1.0;
+        triggerHaptics([60, 40, 120]);
+        // Re-init for new wave (preserves survivalWave counter)
+        this.init();
+      }
+      return;
+    }
+
+    // ── STANDARD MATCH ───────────────────────────────────────────────────
     const targetWins = 2;
     if (this.p1Wins >= targetWins || this.p2Wins >= targetWins) {
       this.gameState = 'gameover';
       this.winner = this.p1Wins >= targetWins ? 1 : 2;
       this.fightText = this.winner === 1 ? 'P1 VICTORIOUS!' : (this.mode === 'p1_vs_cpu' ? 'CPU VICTORIOUS!' : 'P2 VICTORIOUS!');
       this.fightTextOpacity = 1.0;
-
-      // Victory / defeat audio
-      if (this.winner === 1) {
-        this.sound.playWin();
-      } else {
-        this.sound.playLose();
-      }
-
+      if (this.winner === 1) this.sound.playWin();
+      else this.sound.playLose();
       this.notifyUI();
     } else {
-      // Advance round
       this.round++;
-      this.init(); // Reset positions for next round
+      this.init();
     }
   }
 
@@ -651,7 +777,81 @@ export class GameEngine {
     this.p1Wins = 0;
     this.p2Wins = 0;
     this.winner = null;
+    this.survivalWave = 1;
+    this.inputLog = [];
     this.init();
+  }
+
+  // ─── PLATFORM COLLISIONS ─────────────────────────────────────────────────
+  applyPlatformCollisions(player) {
+    if (!this.platforms || player.state === STATES.DEAD) return;
+    for (const plat of this.platforms) {
+      const pLeft  = plat.x;
+      const pRight = plat.x + plat.width;
+      const pTop   = plat.y;
+      // Only land when falling onto top of platform
+      if (
+        player.vel.y >= 0 &&
+        player.pos.x >= pLeft - 8 &&
+        player.pos.x <= pRight + 8 &&
+        player.pos.y <= pTop + 4 &&
+        player.pos.y >= pTop - 18
+      ) {
+        player.pos.y = pTop;
+        player.vel.y = 0;
+        player.isGrounded = true;
+        if (player.state === STATES.JUMP) player.setState(STATES.IDLE);
+      }
+    }
+  }
+
+  // ─── STAGE HAZARDS ───────────────────────────────────────────────────────
+  updateHazards() {
+    this.hazardTimer++;
+    // Advance existing hazards
+    for (let i = this.activeHazards.length - 1; i >= 0; i--) {
+      const h = this.activeHazards[i];
+      h.timer--;
+      if (h.warningTimer > 0) h.warningTimer--;
+
+      if (h.timer <= 0) {
+        // Hazard fires!
+        if (h.warningTimer <= 0) {
+          [this.p1, this.p2].forEach(player => {
+            if (player.state === STATES.DEAD) return;
+            const dist = Math.abs(player.pos.x - h.x);
+            const inRange = h.type === 'lava' ? dist < 55 : dist < 70;
+            if (inRange) {
+              const dmg = h.type === 'lightning' ? 18 : 14;
+              player.health = Math.max(player.health - dmg, 0);
+              player.setState(STATES.STAGGER, true);
+              player.vel.y = -6;
+              this.effects.spawnChiExplosion(h.x, player.pos.y - 30, h.type === 'lightning' ? '#fbbf24' : '#f97316');
+              this.effects.triggerShake(5, 12);
+              triggerHaptics([50, 30, 50]);
+            }
+          });
+        }
+        this.activeHazards.splice(i, 1);
+      }
+    }
+
+    // Spawn new hazards per map on a cycle
+    const spawnInterval = 300; // every 5 seconds
+    if (this.hazardTimer % spawnInterval === 0) {
+      if (this.currentMap === 'magma_cavern') {
+        const rx = 80 + Math.random() * (this.width - 160);
+        this.activeHazards.push({ type: 'lava', x: rx, y: this.groundY, timer: 90, warningTimer: 60 });
+      } else if (this.currentMap === 'stormy_temple') {
+        const rx = 80 + Math.random() * (this.width - 160);
+        this.activeHazards.push({ type: 'lightning', x: rx, y: 0, timer: 80, warningTimer: 50 });
+      } else if (this.currentMap === 'zen_garden') {
+        // Wind gust – push players and blasts horizontally
+        const windDir = Math.random() < 0.5 ? 1 : -1;
+        [this.p1, this.p2].forEach(p => { if (p.state !== STATES.DEAD) p.vel.x += windDir * 3; });
+        this.effects.blasts.forEach(b => { b.vel.x += windDir * 2.5; });
+      }
+    }
   }
 
   draw() {
@@ -693,9 +893,15 @@ export class GameEngine {
     // Draw weapons on the ground
     this.weapons.forEach(w => w.draw(this.ctx));
 
+    // Draw floating platforms
+    this.drawPlatforms();
+
     // Draw players
     if (this.p1) this.p1.draw(this.ctx);
     if (this.p2) this.p2.draw(this.ctx);
+
+    // Draw hazard warnings and effects
+    this.drawHazards();
 
     // Draw visual particle effects
     this.effects.draw(this.ctx);
@@ -711,7 +917,151 @@ export class GameEngine {
     // DRAW HUD INFO ON CANVAS BANNERS (FIGHT/ROUND TEXTS)
     this.drawBanners();
 
+    // Draw survival wave HUD
+    if (this.mode === 'survival') this.drawSurvivalHUD();
+
+    // Draw practice input log
+    if (this.mode === 'practice') this.drawPracticeOverlay();
+
     this.ctx.restore();
+  }
+
+  drawPlatforms() {
+    if (!this.platforms || this.platforms.length === 0) return;
+    const ctx = this.ctx;
+    ctx.save();
+    for (const plat of this.platforms) {
+      // Main platform body
+      const grad = ctx.createLinearGradient(plat.x, plat.y, plat.x, plat.y + plat.height);
+      grad.addColorStop(0, 'rgba(0,240,255,0.35)');
+      grad.addColorStop(1, 'rgba(0,160,200,0.12)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+      // Glowing top edge
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#00f0ff';
+      ctx.strokeStyle = 'rgba(0,240,255,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(plat.x, plat.y);
+      ctx.lineTo(plat.x + plat.width, plat.y);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
+
+  drawHazards() {
+    if (!this.activeHazards || this.activeHazards.length === 0) return;
+    const ctx = this.ctx;
+    ctx.save();
+    for (const h of this.activeHazards) {
+      const t = h.timer;
+      const warnAlpha = h.warningTimer > 0 ? (Math.sin(Date.now() * 0.015) * 0.5 + 0.5) * 0.7 : 0;
+      if (h.type === 'lava') {
+        // Warning circle on ground
+        if (warnAlpha > 0) {
+          ctx.save();
+          ctx.globalAlpha = warnAlpha;
+          ctx.fillStyle = '#f97316';
+          ctx.beginPath();
+          ctx.ellipse(h.x, this.groundY, 50, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        if (h.warningTimer <= 0) {
+          // Active lava spout
+          const flameH = 80 + Math.random() * 40;
+          ctx.save();
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = '#f97316';
+          ctx.fillStyle = 'rgba(251,146,60,0.8)';
+          ctx.beginPath();
+          ctx.moveTo(h.x - 18, this.groundY);
+          ctx.quadraticCurveTo(h.x, this.groundY - flameH, h.x + 18, this.groundY);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(253,224,71,0.5)';
+          ctx.beginPath();
+          ctx.moveTo(h.x - 9, this.groundY);
+          ctx.quadraticCurveTo(h.x, this.groundY - flameH * 0.6, h.x + 9, this.groundY);
+          ctx.fill();
+          ctx.restore();
+        }
+      } else if (h.type === 'lightning') {
+        // Warning zone marker from sky
+        if (warnAlpha > 0) {
+          ctx.save();
+          ctx.globalAlpha = warnAlpha;
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.moveTo(h.x, 0);
+          ctx.lineTo(h.x, this.groundY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+        if (h.warningTimer <= 0) {
+          // Actual lightning bolt
+          ctx.save();
+          ctx.shadowBlur = 24;
+          ctx.shadowColor = '#fbbf24';
+          ctx.strokeStyle = '#fde68a';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          let lx = h.x, ly = 0;
+          while (ly < this.groundY) {
+            const nlx = lx + (Math.random() - 0.5) * 30;
+            const nly = ly + 30 + Math.random() * 20;
+            ctx.lineTo(nlx, Math.min(nly, this.groundY));
+            lx = nlx; ly = nly;
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  drawSurvivalHUD() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = '700 16px "Outfit", "Inter", sans-serif';
+    ctx.fillStyle = '#fbbf24';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#f59e0b';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`⚔ WAVE ${this.survivalWave}`, this.width / 2, 10);
+    ctx.font = '500 12px "Outfit", sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(`BEST: ${this.survivalHighScore}`, this.width / 2, 30);
+    ctx.restore();
+  }
+
+  drawPracticeOverlay() {
+    if (!this.inputLog || this.inputLog.length === 0) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = '600 13px "Outfit", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const now = Date.now();
+    const x = 10;
+    let y = this.height - 100;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(x - 4, y - 8, 110, this.inputLog.length * 20 + 16);
+    this.inputLog.forEach((entry, idx) => {
+      const age = now - entry.t;
+      const alpha = Math.max(0, 1 - age / 2500);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#00f0ff';
+      ctx.fillText(entry.label, x, y + idx * 20);
+    });
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   drawArena() {

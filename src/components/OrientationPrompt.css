@@ -1,0 +1,106 @@
+.orientation-prompt-overlay {
+  display: none; /* Hidden on desktop and landscape mobile by default */
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 99999; /* Higher than everything */
+  background: radial-gradient(circle at center, #0f101c 0%, #030307 100%);
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Detect portrait mode on devices */
+@media (orientation: portrait) and (max-width: 1024px) {
+  .orientation-prompt-overlay {
+    display: flex;
+  }
+}
+
+.orientation-prompt-box {
+  width: 100%;
+  max-width: 320px;
+  background: rgba(10, 10, 20, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6),
+              0 0 40px rgba(0, 240, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.device-animation-container {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.device-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.phone-icon-group {
+  transform-origin: 50px 50px;
+  animation: rotate-device 4s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+/* Device rotating keyframes */
+@keyframes rotate-device {
+  0%, 15% {
+    transform: rotate(0deg);
+  }
+  35%, 65% {
+    transform: rotate(-90deg);
+  }
+  85%, 100% {
+    transform: rotate(0deg);
+  }
+}
+
+.orientation-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.75rem;
+  font-weight: 900;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
+  color: #fbbf24; /* Amber gold text */
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}
+
+.orientation-desc {
+  margin: 0 0 1.5rem 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #a1a1aa;
+}
+
+.orientation-desc strong {
+  color: #22d3ee; /* Cyan highlight */
+}
+
+.orientation-badge {
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ec4899; /* Pink badge */
+  background: rgba(236, 72, 153, 0.1);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.15);
+}

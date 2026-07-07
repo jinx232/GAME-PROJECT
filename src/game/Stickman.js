@@ -1,6 +1,16 @@
 import { Vector2D } from './Vector2D';
 import { ChiBlast } from './Effects';
 
+export function triggerHaptics(pattern) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate(pattern);
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
 export const STATES = {
   IDLE: 'IDLE',
   WALK: 'WALK',
@@ -389,6 +399,7 @@ export class Stickman {
           effectSystem.blasts.push(new ChiBlast(spawnX, handsPos.y, this.dir, this.id, this.color));
           effectSystem.spawnChiExplosion(handsPos.x, handsPos.y, this.color);
           effectSystem.triggerShake(4, 10);
+          triggerHaptics([40, 30, 40]);
           this.chi = 0;
           if (this.soundSystem) this.soundSystem.playChiBlast();
         }
@@ -503,6 +514,8 @@ export class Stickman {
         effectSystem.spawnShockwave(hitboxX, hitboxY, '#ffffff');
         effectSystem.spawnShockwave(hitboxX, hitboxY, opponent.color);
         effectSystem.triggerShake(3, 10);
+        
+        triggerHaptics([45, 25, 45]);
 
         // Parry charges both players' chi a lot
         opponent.chi = Math.min(opponent.chi + baseDamage * 1.4, opponent.maxChi);
@@ -520,6 +533,8 @@ export class Stickman {
 
         effectSystem.spawnBlockSparks(hitboxX, hitboxY, '#00f0ff');
         effectSystem.triggerShake(1.5, 6);
+        
+        triggerHaptics(15);
 
         if (this.soundSystem) this.soundSystem.playBlock();
       } else {
@@ -544,10 +559,17 @@ export class Stickman {
           effectSystem.spawnSwordSlash(hitboxX, hitboxY, this.dir, 45, '#fff');
           effectSystem.spawnBloodSpurt(hitboxX, hitboxY, this.dir, '#ef4444');
           effectSystem.triggerShake(5, 12);
+          triggerHaptics(45);
+        } else if (hitType === 'staff') {
+          effectSystem.spawnHitSparks(hitboxX, hitboxY, '#fbbf24');
+          effectSystem.spawnBloodSpurt(hitboxX, hitboxY, this.dir, 'rgba(239, 68, 68, 0.3)');
+          effectSystem.triggerShake(4.5, 10);
+          triggerHaptics(35);
         } else {
           effectSystem.spawnHitSparks(hitboxX, hitboxY, this.color);
           effectSystem.spawnBloodSpurt(hitboxX, hitboxY, this.dir, 'rgba(239, 68, 68, 0.4)');
           effectSystem.triggerShake(3.5, 9);
+          triggerHaptics(30);
         }
 
         if (this.soundSystem) this.soundSystem.playHit();
@@ -599,16 +621,18 @@ export class Stickman {
         effectSystem.spawnShockwave(hitboxX, hitboxY, '#ffffff');
         effectSystem.spawnShockwave(hitboxX, hitboxY, opponent.color);
         effectSystem.triggerShake(2, 8);
+        triggerHaptics([40, 20, 40]);
         if (this.soundSystem) this.soundSystem.playParry();
       } else if (isBlocking) {
         opponent.health = Math.max(opponent.health - baseDamage * 0.1, 0);
         opponent.vel.x = this.dir * 1.5;
         effectSystem.spawnBlockSparks(hitboxX, hitboxY, '#00f0ff');
         effectSystem.triggerShake(1, 4);
+        triggerHaptics(15);
         if (this.soundSystem) this.soundSystem.playBlock();
       } else {
         opponent.health = Math.max(opponent.health - baseDamage, 0);
-
+ 
         // Spin kick is a hard knockdown; punches just stun
         if (isSpinKick) {
           opponent.setState(STATES.HIT, true);
@@ -617,6 +641,7 @@ export class Stickman {
           effectSystem.spawnChiExplosion(hitboxX, hitboxY, this.color);
           effectSystem.spawnBloodSpurt(hitboxX, hitboxY, this.dir, 'rgba(239, 68, 68, 0.55)');
           effectSystem.triggerShake(6, 14);
+          triggerHaptics([55, 25, 55]);
           // Signal engine to flash the screen
           if (this._onImpactFlash) this._onImpactFlash();
         } else {
@@ -625,6 +650,7 @@ export class Stickman {
           opponent.vel.y = -1.5;
           effectSystem.spawnHitSparks(hitboxX, hitboxY, this.color);
           effectSystem.triggerShake(2.5, 7);
+          triggerHaptics(25);
         }
 
         this.comboCount++;

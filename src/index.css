@@ -420,3 +420,109 @@ kbd {
 .scale-in {
   animation: scale-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
+
+/* --- Mobile Landscape Viewport and Layout scaling --- */
+.utility-bar {
+  top: 6rem; /* matches top-24 default */
+  transition: all 0.25s ease;
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  /* Scale app-container to fill device screen without borders or gaps */
+  .app-container {
+    padding: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  .game-wrapper {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  .canvas-wrapper {
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  footer {
+    display: none !important;
+  }
+
+  /* Compact HUD adjustments */
+  .hud-container {
+    padding: 0.35rem 0.75rem !important; /* tight padding */
+  }
+
+  .player-name {
+    font-size: 0.8rem !important; /* slightly smaller */
+  }
+
+  .weapon-badge {
+    font-size: 9px !important;
+    padding: 1px 4px !important;
+  }
+
+  .p1-hud .bar-wrapper,
+  .p2-hud .bar-wrapper {
+    height: 1rem !important; /* thinner health bar */
+  }
+
+  .p1-hud .chi-bar-wrapper,
+  .p2-hud .chi-bar-wrapper {
+    height: 0.5rem !important;
+  }
+
+  .p1-hud .bar-wrapper div,
+  .p2-hud .bar-wrapper div {
+    font-size: 8px !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  .timer-hud {
+    transform: scale(0.8);
+  }
+
+  .round-count {
+    font-size: 9px !important;
+    margin-bottom: 2px;
+  }
+
+  .timer-circle {
+    width: 2.5rem !important; /* 40px */
+    height: 2.5rem !important;
+    margin-top: 0 !important;
+  }
+
+  .timer-text {
+    font-size: 1.15rem !important; /* text-md */
+  }
+
+  /* Move combo alerts to not cover screen */
+  .p1-combo-alert {
+    left: 1rem !important;
+    top: 4.5rem !important;
+    transform: scale(0.65) !important;
+  }
+
+  .p2-combo-alert {
+    right: 1rem !important;
+    top: 4.5rem !important;
+    transform: scale(0.65) !important;
+  }
+
+  /* Compact utility bar positioned right at the top center out of the way */
+  .utility-bar {
+    top: 0.25rem !important; /* very top edge */
+    transform: translateX(-50%) scale(0.72) !important; /* scaled down */
+    background-color: rgba(9, 9, 11, 0.8) !important;
+  }
+}
+

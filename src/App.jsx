@@ -3,6 +3,7 @@ import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
 import MainMenu from './game/MainMenu';
 import MobileControls from './components/MobileControls';
+import OrientationPrompt from './components/OrientationPrompt';
 import { RotateCcw, Home, Play, Pause, Smartphone, Volume2, VolumeX } from 'lucide-react';
 
 export default function App() {
@@ -101,6 +102,9 @@ export default function App() {
   return (
     <div className="app-container min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-2 sm:p-4 text-white overflow-hidden font-sans">
       
+      {/* Full-screen orientation lock prompt for mobile portrait mode */}
+      <OrientationPrompt />
+
       {!inGame ? (
         /* START MENU SCREEN */
         <MainMenu
@@ -128,7 +132,7 @@ export default function App() {
           <HUD uiState={uiState} />
 
           {/* Desktop Pause / Utility Buttons (Top Center) */}
-          <div className="absolute top-24 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30 pointer-events-auto bg-zinc-950/60 border border-zinc-800/80 rounded-full px-4 py-1.5 backdrop-blur-md">
+          <div className="utility-bar absolute top-24 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30 pointer-events-auto bg-zinc-950/60 border border-zinc-800/80 rounded-full px-4 py-1.5 backdrop-blur-md">
             <button
               onClick={() => setIsPaused(!isPaused)}
               className="text-zinc-400 hover:text-white transition-colors"
@@ -201,6 +205,24 @@ export default function App() {
                   </div>
                 </div>
                 
+                {/* Practice dummy mode toggle */}
+                {config.mode === 'practice' && (
+                  <div className="mt-3 bg-zinc-900/60 border border-violet-800/40 rounded-lg p-3 text-left">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-violet-500 mb-2">Dummy Mode</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {['stand','block','crouch','jump'].map(dm => (
+                        <button
+                          key={dm}
+                          onClick={() => { if (window.gameEngine) window.gameEngine.practiceDummyMode = dm; }}
+                          className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-zinc-800 hover:bg-violet-900/60 text-zinc-300 hover:text-white transition-colors border border-zinc-700"
+                        >
+                          {dm}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-3 mt-2">
                   <button
                     onClick={() => setIsPaused(false)}
@@ -236,12 +258,25 @@ export default function App() {
           {uiState.gameState === 'gameover' && (
             <div className="absolute inset-0 bg-zinc-950/95 backdrop-blur z-40 flex flex-col items-center justify-center animate-fade-in">
               <div className="glassmorphic p-8 rounded-xl border border-zinc-800 shadow-2xl text-center max-w-sm w-full mx-4">
-                <h2 className="text-3xl font-black italic uppercase tracking-wider text-red-500 drop-shadow-glow-pink">
-                  VICTORY!
-                </h2>
-                <p className="text-zinc-300 text-sm font-extrabold mt-3 uppercase tracking-wider">
-                  {uiState.winner === 1 ? 'Player 1' : (config.mode === 'p1_vs_cpu' ? 'Tiger CPU' : 'Player 2')} Wins the Match
-                </p>
+                {config.mode === 'survival' ? (
+                  <>
+                    <h2 className="text-3xl font-black italic uppercase tracking-wider text-orange-500">
+                      SURVIVAL OVER
+                    </h2>
+                    <p className="text-zinc-300 text-sm font-extrabold mt-3 uppercase tracking-wider">
+                      {uiState.fightText}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-3xl font-black italic uppercase tracking-wider text-red-500 drop-shadow-glow-pink">
+                      VICTORY!
+                    </h2>
+                    <p className="text-zinc-300 text-sm font-extrabold mt-3 uppercase tracking-wider">
+                      {uiState.winner === 1 ? 'Player 1' : (config.mode === 'p1_vs_cpu' ? 'Tiger CPU' : 'Player 2')} Wins the Match
+                    </p>
+                  </>
+                )}
                 <div className="flex items-center justify-center gap-4 text-xs font-semibold text-zinc-400 mt-2 bg-zinc-950/40 p-2 rounded border border-zinc-900">
                   <span>P1 Wins: {uiState.p1Wins}</span>
                   <span className="text-zinc-700">|</span>

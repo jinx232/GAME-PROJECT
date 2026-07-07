@@ -91,7 +91,7 @@ export default function HUD({ uiState }) {
 
           {/* Chi / Special Bar */}
           <div className="flex items-center gap-2 w-full mt-1.5">
-            <div className="bar-wrapper flex-grow h-3 bg-zinc-900 border border-zinc-700/50 rounded overflow-hidden relative">
+            <div className="bar-wrapper chi-bar-wrapper flex-grow h-3 bg-zinc-900 border border-zinc-700/50 rounded overflow-hidden relative">
               <div 
                 className={`chi-bar h-full bg-gradient-to-r from-amber-600 to-yellow-400 shadow-glow transition-all duration-150 ${p1Chi >= 100 ? 'animate-pulse' : ''}`}
                 style={{ width: `${p1Chi}%` }}
@@ -163,7 +163,7 @@ export default function HUD({ uiState }) {
 
           {/* Chi Bar */}
           <div className="flex items-center gap-2 w-full mt-1.5 justify-end">
-            <div className="bar-wrapper flex-grow h-3 bg-zinc-900 border border-zinc-700/50 rounded overflow-hidden relative">
+            <div className="bar-wrapper chi-bar-wrapper flex-grow h-3 bg-zinc-900 border border-zinc-700/50 rounded overflow-hidden relative">
               <div 
                 className={`chi-bar h-full bg-gradient-to-l from-amber-600 to-yellow-400 shadow-glow transition-all duration-150 absolute right-0 ${p2Chi >= 100 ? 'animate-pulse' : ''}`}
                 style={{ width: `${p2Chi}%` }}

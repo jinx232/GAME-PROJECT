@@ -1,0 +1,248 @@
+.mobile-controls-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 30;
+}
+
+/* Movement D-pad styling */
+.movement-pad {
+  pointer-events: auto;
+  position: relative;
+  width: 9rem; /* w-36 (144px) */
+  height: 9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.movement-pad:active,
+.movement-pad:focus-within {
+  opacity: 0.95;
+}
+
+.dpad-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.45);
+  border: 1px solid rgba(39, 39, 42, 0.5);
+  border-radius: 9999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.dpad-center {
+  width: 1.25rem; /* w-5 */
+  height: 1.25rem;
+  background: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 9999px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* D-pad directional buttons */
+.dpad-btn {
+  position: absolute;
+  width: 2.75rem; /* 44px */
+  height: 2.75rem;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.125rem;
+  color: #d4d4d8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.dpad-btn:active {
+  background: rgba(0, 240, 255, 0.25) !important;
+  border-color: #22d3ee !important;
+  color: #a5f3fc !important;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+.dpad-btn-up {
+  top: 0.25rem;
+}
+
+.dpad-btn-left {
+  left: 0.25rem;
+}
+
+.dpad-btn-right {
+  right: 0.25rem;
+}
+
+.dpad-btn-down {
+  bottom: 0.25rem;
+}
+
+/* Action Pad styling */
+.action-pad {
+  pointer-events: auto;
+  position: relative;
+  width: 12rem; /* w-48 (192px) */
+  height: 12rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.action-pad:active,
+.action-pad:focus-within {
+  opacity: 0.95;
+}
+
+/* Action button base */
+.action-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #ffffff;
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  transition: all 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: none;
+}
+
+.action-btn:active {
+  transform: scale(0.9) !important;
+}
+
+/* Specific buttons placement and sizing */
+.action-btn-punch {
+  bottom: 0.25rem;
+  right: 0.25rem;
+  width: 4rem; /* 64px */
+  height: 4rem;
+  background: #0891b2;
+  border: 1px solid #22d3ee;
+  font-size: 0.875rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.action-btn-punch:active {
+  background: #06b6d4;
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+}
+
+.action-btn-kick {
+  bottom: 4rem;
+  right: 4rem;
+  width: 4rem;
+  height: 4rem;
+  background: #db2777;
+  border: 1px solid #f472b6;
+  font-size: 0.875rem;
+}
+
+.action-btn-kick:active {
+  background: #ec4899;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.5);
+}
+
+.action-btn-sweep {
+  bottom: 0.25rem;
+  right: 5rem;
+  width: 3rem; /* 48px */
+  height: 3rem;
+  background: #18181b;
+  border: 1px solid #3f3f46;
+  color: #d4d4d8;
+  font-size: 0.65rem;
+}
+
+.action-btn-sweep:active {
+  background: #27272a;
+}
+
+.action-btn-weapon {
+  top: 1rem;
+  right: 0.25rem;
+  width: 3rem;
+  height: 3rem;
+  background: #d97706;
+  border: 1px solid #fbbf24;
+}
+
+.action-btn-weapon:active {
+  background: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+
+.action-btn-chi {
+  top: 0;
+  right: 4rem;
+  width: 3.5rem; /* 56px */
+  height: 3.5rem;
+  background: linear-gradient(135deg, #eab308, #d97706);
+  border: 2px solid #ffffff;
+  color: #000000;
+  font-size: 0.75rem;
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+  animation: chi-pulse 1.5s infinite alternate;
+}
+
+@keyframes chi-pulse {
+  0% {
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 22px rgba(251, 191, 36, 0.8), inset 0 0 8px rgba(255, 255, 255, 0.6);
+  }
+}
+
+/* Responsiveness: Scale Controls down for small screen landscape viewports */
+@media (max-width: 900px) or (max-height: 560px) {
+  .mobile-controls-overlay {
+    padding: 0.65rem;
+  }
+  
+  .movement-pad {
+    transform: scale(0.85);
+    transform-origin: bottom left;
+  }
+  
+  .action-pad {
+    transform: scale(0.85);
+    transform-origin: bottom right;
+  }
+}
+
+@media (max-width: 667px) or (max-height: 420px) {
+  .mobile-controls-overlay {
+    padding: 0.4rem;
+  }
+  
+  .movement-pad {
+    transform: scale(0.72);
+    transform-origin: bottom left;
+  }
+  
+  .action-pad {
+    transform: scale(0.72);
+    transform-origin: bottom right;
+  }
+}
