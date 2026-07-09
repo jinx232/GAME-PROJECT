@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { Volume2, VolumeX, Maximize2, Minimize2 } from 'lucide-react';
 import './MainMenu.css';
 
 const mapDescriptions = {
   cyberpunk_dojo:  { text: 'A neon dojo full of glowing lanterns and electric energy.',    hazard: 'none' },
-  neon_rooftop:    { text: 'A high-rise rooftop shimmering with lightning and skyline.',   hazard: 'none' },
+  neon_rooftop:    { text: 'A high-rise rooftop shimmering with lightning and skyline.',   hazard: '🛸 Cyber Drones' },
   zen_garden:      { text: 'A bamboo garden with calm stones, petals, and wind gusts.',    hazard: '💨 Wind Gusts' },
   magma_cavern:    { text: 'A molten cavern filled with fire, smoke, and raw heat.',        hazard: '🔥 Lava Spouts' },
   stormy_temple:   { text: 'A storm-lashed temple pulsing with thunder and rain.',          hazard: '⚡ Lightning Strikes' },
@@ -40,7 +41,7 @@ const MODES = [
   },
 ];
 
-const MainMenu = ({ onStartGame, maps, savedConfig }) => {
+const MainMenu = ({ onStartGame, maps, savedConfig, isFullscreen, toggleFullscreen, isSoundOn, toggleSound }) => {
   const [gameMode, setGameMode]             = useState(savedConfig?.mode || 'p1_vs_cpu');
   const [selectedMap, setSelectedMap]       = useState(savedConfig?.map || maps[0]);
   const [weaponSpawnEnabled, setWeaponSpawn]= useState(savedConfig?.weaponSpawnEnabled !== undefined ? savedConfig.weaponSpawnEnabled : true);
@@ -57,8 +58,25 @@ const MainMenu = ({ onStartGame, maps, savedConfig }) => {
   const hideDifficulty = gameMode === 'practice';
 
   return (
-    <div className="main-menu-container">
+    <div className={`main-menu-container ${isFullscreen ? 'fullscreen-active' : ''}`}>
       <div className="main-menu">
+        {/* Top bar settings for Fullscreen and Sound */}
+        <div className="menu-top-bar">
+          <button
+            onClick={toggleSound}
+            className={`menu-top-btn ${isSoundOn ? 'sound-on' : 'sound-off'}`}
+            title={isSoundOn ? 'Mute Sound' : 'Unmute Sound'}
+          >
+            {isSoundOn ? <Volume2 className="w-5 h-5 text-amber-400" /> : <VolumeX className="w-5 h-5 text-zinc-500" />}
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className={`menu-top-btn ${isFullscreen ? 'fullscreen-on' : ''}`}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 className="w-5 h-5 text-cyan-400" /> : <Maximize2 className="w-5 h-5 text-zinc-400" />}
+          </button>
+        </div>
         <div className="menu-header">
           <div className="menu-badge">⚔️</div>
           <div>

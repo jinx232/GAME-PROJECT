@@ -31,8 +31,9 @@ export default function GameCanvas({ config, onUIUpdate, isPaused, isRestartTrig
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.width = LOGICAL_WIDTH;
-    canvas.height = LOGICAL_HEIGHT;
+    const dpr = window.devicePixelRatio || 2;
+    canvas.width = LOGICAL_WIDTH * dpr;
+    canvas.height = LOGICAL_HEIGHT * dpr;
 
     const engine = new GameEngine(canvas, {
       mode: config.mode,

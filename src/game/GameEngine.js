@@ -1,5 +1,5 @@
 import { Stickman, STATES, triggerHaptics } from './Stickman';
-import { EffectSystem } from './Effects';
+import { EffectSystem, Particle } from './Effects';
 import { InputHandler } from './InputHandler';
 import { Weapon } from './Weapon';
 import { AIController } from './AI';
@@ -19,9 +19,9 @@ export class GameEngine {
     this.p2Name = config.p2Name || (this.mode === 'p1_vs_cpu' ? 'Tiger CPU' : 'Snake P2');
     this.weaponSpawnEnabled = config.weaponSpawnEnabled !== false;
 
-    // Dimensions
-    this.width = canvas.width;
-    this.height = canvas.height;
+    // Dimensions (Logical internal bounds for physics)
+    this.width = 960;
+    this.height = 540;
     this.groundY = this.height - 80;
 
     // Game Objects
@@ -86,6 +86,7 @@ export class GameEngine {
     }
     // Update platform positions for this map
     this.platforms = this.getPlatformsForMap(this.currentMap);
+    this.initAmbientDust();
   }
 
   getPlatformsForMap(map) {
@@ -125,8 +126,22 @@ export class GameEngine {
 
   init() {
     const isAI = this.mode === 'p1_vs_cpu' || this.mode === 'survival';
+
+    // Save P1 health/chi if carrying over in survival mode
+    let carriedP1Health = null;
+    let carriedP1Chi = null;
+    if (this.mode === 'survival' && this.survivalWave > 1 && this.p1) {
+      carriedP1Health = this.p1.health;
+      carriedP1Chi = this.p1.chi;
+    }
+
     this.p1 = new Stickman(this.width * 0.25, this.groundY, 1, this.p1Color, this.p1Name, false);
     this.p2 = new Stickman(this.width * 0.75, this.groundY, 2, this.p2Color, this.p2Name, isAI);
+
+    if (carriedP1Health !== null) {
+      this.p1.health = carriedP1Health;
+      this.p1.chi = carriedP1Chi;
+    }
 
     this.p1.engineProjectiles = this.effects.blasts;
     this.p2.engineProjectiles = this.effects.blasts;
@@ -155,6 +170,9 @@ export class GameEngine {
       const difficulties = ['easy', 'medium', 'medium', 'hard', 'hard'];
       const waveDiff = difficulties[Math.min(this.survivalWave - 1, difficulties.length - 1)];
       this.ai = new AIController(waveDiff);
+      if (this.survivalWave > 5) {
+        this.ai.reactionDelay = Math.max(2, 5 - (this.survivalWave - 5));
+      }
     }
 
     if (this.mode !== 'practice') this.startTimer();
@@ -163,8 +181,9 @@ export class GameEngine {
     this.platforms = this.getPlatformsForMap(this.currentMap);
 
     if (this.weaponSpawnEnabled) {
-      this.weapons.push(new Weapon(this.width * 0.35, 100, 'sword'));
-      this.weapons.push(new Weapon(this.width * 0.65, 100, 'staff'));
+      const types = ['sword', 'staff', 'nunchucks', 'spear'];
+      this.weapons.push(new Weapon(this.width * 0.35, 100, types[Math.floor(Math.random() * types.length)]));
+      this.weapons.push(new Weapon(this.width * 0.65, 100, types[Math.floor(Math.random() * types.length)]));
     }
 
     this.notifyUI();
@@ -275,11 +294,11 @@ export class GameEngine {
   }
 
   notifyUI() {
-    this.onUIEvent({
-      p1Health: this.p1 ? this.p1.health : 100,
-      p2Health: this.p2 ? this.p2.health : 100,
-      p1Chi: this.p1 ? this.p1.chi : 0,
-      p2Chi: this.p2 ? this.p2.chi : 0,
+    const nextState = {
+      p1Health: this.p1 ? Math.round(this.p1.health) : 100,
+      p2Health: this.p2 ? Math.round(this.p2.health) : 100,
+      p1Chi: this.p1 ? Math.round(this.p1.chi) : 0,
+      p2Chi: this.p2 ? Math.round(this.p2.chi) : 0,
       p1Combo: this.p1 ? this.p1.comboCount : 0,
       p2Combo: this.p2 ? this.p2.comboCount : 0,
       p1Weapon: this.p1 ? this.p1.weapon : null,
@@ -297,8 +316,31 @@ export class GameEngine {
       fightText: this.fightText,
       survivalWave: this.survivalWave,
       survivalHighScore: this.survivalHighScore,
-      mode: this.mode,
-    });
+      mode: this.mode
+    };
+
+    if (!this._lastUIState) {
+      this._lastUIState = nextState;
+      this.onUIEvent({ ...nextState, inputLog: [...this.inputLog] });
+      return;
+    }
+
+    let changed = false;
+    for (const key of Object.keys(nextState)) {
+      if (nextState[key] !== this._lastUIState[key]) {
+        changed = true;
+        break;
+      }
+    }
+
+    if (this.mode === 'practice' && this.inputLog.length !== (this._lastUIState.inputLog?.length || 0)) {
+      changed = true;
+    }
+
+    if (changed) {
+      this._lastUIState = nextState;
+      this.onUIEvent({ ...nextState, inputLog: [...this.inputLog] });
+    }
   }
 
   logInput(label) {
@@ -404,10 +446,8 @@ export class GameEngine {
     }
 
     // 3. Update physics on players (with platform support)
-    this.p1.update(this.groundY, this.width, this.p2, this.effects);
-    this.p2.update(this.groundY, this.width, this.p1, this.effects);
-    this.applyPlatformCollisions(this.p1);
-    this.applyPlatformCollisions(this.p2);
+    this.p1.update(this.groundY, this.width, this.p2, this.effects, this.platforms);
+    this.p2.update(this.groundY, this.width, this.p1, this.effects, this.platforms);
 
     // 4. Player-to-player collision pushing
     const distBetween = Math.abs(this.p1.pos.x - this.p2.pos.x);
@@ -480,7 +520,8 @@ export class GameEngine {
   }
 
   spawnRandomWeapon() {
-    const weaponType = Math.random() > 0.5 ? 'sword' : 'staff';
+    const types = ['sword', 'staff', 'nunchucks', 'spear'];
+    const weaponType = types[Math.floor(Math.random() * types.length)];
     const rx = 100 + Math.random() * (this.width - 200);
     this.weapons.push(new Weapon(rx, -30, weaponType));
     
@@ -782,28 +823,7 @@ export class GameEngine {
     this.init();
   }
 
-  // ─── PLATFORM COLLISIONS ─────────────────────────────────────────────────
-  applyPlatformCollisions(player) {
-    if (!this.platforms || player.state === STATES.DEAD) return;
-    for (const plat of this.platforms) {
-      const pLeft  = plat.x;
-      const pRight = plat.x + plat.width;
-      const pTop   = plat.y;
-      // Only land when falling onto top of platform
-      if (
-        player.vel.y >= 0 &&
-        player.pos.x >= pLeft - 8 &&
-        player.pos.x <= pRight + 8 &&
-        player.pos.y <= pTop + 4 &&
-        player.pos.y >= pTop - 18
-      ) {
-        player.pos.y = pTop;
-        player.vel.y = 0;
-        player.isGrounded = true;
-        if (player.state === STATES.JUMP) player.setState(STATES.IDLE);
-      }
-    }
-  }
+  // ─── PLATFORM COLLISIONS (Deprecated - logic now in Stickman.js) ───
 
   // ─── STAGE HAZARDS ───────────────────────────────────────────────────────
   updateHazards() {
@@ -812,7 +832,73 @@ export class GameEngine {
     for (let i = this.activeHazards.length - 1; i >= 0; i--) {
       const h = this.activeHazards[i];
       h.timer--;
-      if (h.warningTimer > 0) h.warningTimer--;
+      
+      if (h.warningTimer > 0) {
+        h.warningTimer--;
+        
+        // Bubbling ambient sound/effect when warning is about to finish
+        if (h.warningTimer === 0) {
+          if (h.type === 'lava') {
+            // Eruption burst
+            for (let p = 0; p < 20; p++) {
+              const vx = (Math.random() - 0.5) * 5;
+              const vy = -5 - Math.random() * 9;
+              this.effects.particles.push(new Particle(
+                h.x + (Math.random() - 0.5) * 15,
+                this.groundY,
+                vx, vy,
+                '#f97316',
+                3 + Math.random() * 4,
+                20 + Math.random() * 25,
+                0.07,
+                'spark'
+              ));
+            }
+            this.sound.playHit();
+          } else if (h.type === 'lightning') {
+            // Lightning strike spark explosion
+            this.effects.spawnChiExplosion(h.x, this.groundY, '#fbbf24');
+            this.effects.triggerShake(7, 15);
+            this.sound.playHit();
+          } else if (h.type === 'drone_laser') {
+            // Laser blast impact
+            this.effects.spawnChiExplosion(h.x, this.groundY, h.color);
+            this.effects.triggerShake(6, 12);
+            this.sound.playHit();
+          }
+        }
+      }
+
+      // Continuous particle emission during firing stage
+      if (h.warningTimer <= 0 && h.timer > 0) {
+        if (h.type === 'lava' && Math.random() < 0.45) {
+          const vx = (Math.random() - 0.5) * 3;
+          const vy = -3 - Math.random() * 7;
+          this.effects.particles.push(new Particle(
+            h.x + (Math.random() - 0.5) * 20,
+            this.groundY,
+            vx, vy,
+            '#fb923c',
+            2.5 + Math.random() * 3,
+            12 + Math.random() * 15,
+            0.05,
+            'spark'
+          ));
+        } else if (h.type === 'drone_laser' && Math.random() < 0.5) {
+          const vx = (Math.random() - 0.5) * 6;
+          const vy = -1 - Math.random() * 4;
+          this.effects.particles.push(new Particle(
+            h.x,
+            this.groundY,
+            vx, vy,
+            h.color,
+            2 + Math.random() * 3,
+            10 + Math.random() * 15,
+            0.04,
+            'spark'
+          ));
+        }
+      }
 
       if (h.timer <= 0) {
         // Hazard fires!
@@ -820,13 +906,13 @@ export class GameEngine {
           [this.p1, this.p2].forEach(player => {
             if (player.state === STATES.DEAD) return;
             const dist = Math.abs(player.pos.x - h.x);
-            const inRange = h.type === 'lava' ? dist < 55 : dist < 70;
+            const inRange = h.type === 'lava' ? dist < 55 : (h.type === 'drone_laser' ? dist < 45 : dist < 70);
             if (inRange) {
-              const dmg = h.type === 'lightning' ? 18 : 14;
+              const dmg = h.type === 'lightning' ? 18 : (h.type === 'drone_laser' ? 15 : 14);
               player.health = Math.max(player.health - dmg, 0);
               player.setState(STATES.STAGGER, true);
               player.vel.y = -6;
-              this.effects.spawnChiExplosion(h.x, player.pos.y - 30, h.type === 'lightning' ? '#fbbf24' : '#f97316');
+              this.effects.spawnChiExplosion(h.x, player.pos.y - 30, h.type === 'lightning' ? '#fbbf24' : (h.type === 'drone_laser' ? h.color : '#f97316'));
               this.effects.triggerShake(5, 12);
               triggerHaptics([50, 30, 50]);
             }
@@ -845,20 +931,51 @@ export class GameEngine {
       } else if (this.currentMap === 'stormy_temple') {
         const rx = 80 + Math.random() * (this.width - 160);
         this.activeHazards.push({ type: 'lightning', x: rx, y: 0, timer: 80, warningTimer: 50 });
+      } else if (this.currentMap === 'neon_rooftop') {
+        const rx = 80 + Math.random() * (this.width - 160);
+        this.activeHazards.push({
+          type: 'drone_laser',
+          x: rx,
+          y: 40,
+          timer: 110,
+          warningTimer: 70,
+          color: Math.random() > 0.5 ? '#00f0ff' : '#ec4899'
+        });
       } else if (this.currentMap === 'zen_garden') {
         // Wind gust – push players and blasts horizontally
         const windDir = Math.random() < 0.5 ? 1 : -1;
-        [this.p1, this.p2].forEach(p => { if (p.state !== STATES.DEAD) p.vel.x += windDir * 3; });
-        this.effects.blasts.forEach(b => { b.vel.x += windDir * 2.5; });
+        [this.p1, this.p2].forEach(p => { if (p.state !== STATES.DEAD) p.vel.x += windDir * 3.5; });
+        this.effects.blasts.forEach(b => { b.vel.x += windDir * 2.8; });
+        this.effects.spawnWindGust(windDir);
+
+        // Spawn extra swirling cherry blossoms & leaves for visual flair
+        for (let p = 0; p < 15; p++) {
+          const wx = windDir > 0 ? -20 : this.width + 20;
+          const wy = 40 + Math.random() * 320;
+          this.effects.particles.push(new Particle(
+            wx, wy,
+            windDir * (5 + Math.random() * 6),
+            (Math.random() - 0.5) * 2,
+            Math.random() > 0.4 ? '#4ade80' : '#f472b6',
+            3 + Math.random() * 3,
+            80 + Math.random() * 40,
+            -0.01,
+            'dust'
+          ));
+        }
       }
     }
   }
 
   draw() {
+    // Clear canvas based on backing store size
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
     this.ctx.save();
 
-    // Clear canvas
-    this.ctx.clearRect(0, 0, this.width, this.height);
+    // Scale drawing context to match backing store resolution (High-DPI graphics)
+    const scale = this.canvas.width / this.width;
+    this.ctx.scale(scale, scale);
 
     // Apply Screen Shake
     if (this.effects.shakeDuration > 0) {
@@ -870,25 +987,92 @@ export class GameEngine {
     // DRAW ARENA BACKGROUND
     this.drawArena();
 
-    // Draw ambient dust and falling sakura petals
-    this.ambientDust.forEach(dust => {
+    // Draw ambient dust and map-themed particles - HIGHLY OPTIMIZED BATCHED drawing!
+    
+    // Group 1: Rain
+    const rainParticles = this.ambientDust.filter(d => d.isRain);
+    if (rainParticles.length > 0) {
       this.ctx.save();
-      this.ctx.globalAlpha = dust.alpha;
-      if (dust.isPetal) {
-        this.ctx.fillStyle = '#f472b6'; // pink-400
-        this.ctx.translate(dust.x, dust.y);
-        this.ctx.rotate(dust.angle);
-        this.ctx.beginPath();
-        this.ctx.ellipse(0, 0, dust.size * 1.4, dust.size * 0.7, 0, 0, Math.PI * 2);
-        this.ctx.fill();
-      } else {
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.beginPath();
-        this.ctx.arc(dust.x, dust.y, dust.size, 0, Math.PI * 2);
-        this.ctx.fill();
+      this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      for (const d of rainParticles) {
+        this.ctx.moveTo(d.x, d.y);
+        this.ctx.lineTo(d.x + d.vx * 1.8, d.y + d.vy * 1.8);
       }
+      this.ctx.stroke();
+
+      // Rain splashes on the ground
+      this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
+      this.ctx.beginPath();
+      for (const d of rainParticles) {
+        if (d.y > this.groundY - 12) {
+          const rippleRadius = (d.y - (this.groundY - 12)) * 0.5;
+          this.ctx.moveTo(d.x + rippleRadius + 1, this.groundY);
+          this.ctx.ellipse(d.x, this.groundY, rippleRadius + 1, (rippleRadius + 1) * 0.3, 0, 0, Math.PI * 2);
+        }
+      }
+      this.ctx.stroke();
       this.ctx.restore();
-    });
+    }
+
+    // Group 2: Sakura Petals (Dojo)
+    const petalParticles = this.ambientDust.filter(d => d.isPetal);
+    if (petalParticles.length > 0) {
+      this.ctx.save();
+      this.ctx.fillStyle = '#f472b6';
+      this.ctx.beginPath();
+      for (const d of petalParticles) {
+        this.ctx.moveTo(d.x + d.size * 1.4, d.y);
+        this.ctx.ellipse(d.x, d.y, d.size * 1.4, d.size * 0.7, d.angle, 0, Math.PI * 2);
+      }
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    // Group 3: Leaves (Garden)
+    const leafParticles = this.ambientDust.filter(d => d.isLeaf);
+    if (leafParticles.length > 0) {
+      this.ctx.save();
+      this.ctx.fillStyle = '#4ade80';
+      this.ctx.beginPath();
+      for (const d of leafParticles) {
+        this.ctx.moveTo(d.x + d.size * 1.3, d.y);
+        this.ctx.ellipse(d.x, d.y, d.size * 1.3, d.size * 0.6, d.angle, 0, Math.PI * 2);
+      }
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    // Group 4: Embers (Cavern)
+    const emberParticles = this.ambientDust.filter(d => d.isEmber);
+    if (emberParticles.length > 0) {
+      this.ctx.save();
+      this.ctx.shadowBlur = 5;
+      this.ctx.shadowColor = '#f97316';
+      this.ctx.fillStyle = '#f97316';
+      this.ctx.beginPath();
+      for (const d of emberParticles) {
+        this.ctx.moveTo(d.x + d.size, d.y);
+        this.ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+      }
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    // Group 5: Standard sparks/dust
+    const standardDust = this.ambientDust.filter(d => !d.isRain && !d.isPetal && !d.isLeaf && !d.isEmber);
+    if (standardDust.length > 0) {
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      this.ctx.beginPath();
+      for (const d of standardDust) {
+        this.ctx.moveTo(d.x + d.size, d.y);
+        this.ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+      }
+      this.ctx.fill();
+      this.ctx.restore();
+    }
 
     // Draw weapons on the ground
     this.weapons.forEach(w => w.draw(this.ctx));
@@ -906,11 +1090,19 @@ export class GameEngine {
     // Draw visual particle effects
     this.effects.draw(this.ctx);
 
-    // Draw screen flash overlay on impact
+    // Draw screen flash overlay on impact (with 1-2 frame high-impact color inversion!)
     if (this.impactFlashDuration > 0) {
       this.ctx.save();
-      this.ctx.fillStyle = `rgba(255, 255, 255, ${(this.impactFlashDuration / 8) * 0.35})`;
-      this.ctx.fillRect(0, 0, this.width, this.height);
+      if (this.impactFlashDuration >= 7) {
+        // High impact frame: Invert all colors on screen
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.globalCompositeOperation = 'difference';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+      } else {
+        // Fade out impact flash
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${(this.impactFlashDuration / 6) * 0.38})`;
+        this.ctx.fillRect(0, 0, this.width, this.height);
+      }
       this.ctx.restore();
     }
 
@@ -930,23 +1122,296 @@ export class GameEngine {
     if (!this.platforms || this.platforms.length === 0) return;
     const ctx = this.ctx;
     ctx.save();
+    
     for (const plat of this.platforms) {
-      // Main platform body
-      const grad = ctx.createLinearGradient(plat.x, plat.y, plat.x, plat.y + plat.height);
-      grad.addColorStop(0, 'rgba(0,240,255,0.35)');
-      grad.addColorStop(1, 'rgba(0,160,200,0.12)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-      // Glowing top edge
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = '#00f0ff';
-      ctx.strokeStyle = 'rgba(0,240,255,0.9)';
+      ctx.save();
+      
+      let strokeStyle = '#00f0ff';
+      let shadowColor = '#00f0ff';
+      let shadowBlur = 8;
+      let drawExtra = null;
+
+      switch (this.currentMap) {
+        case 'cyberpunk_dojo':
+          // Solid mahogany wood background (no gradient)
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+          
+          // Faint pink sakura top underglow (pulsing)
+          const dojoPulse = 8 + Math.sin(Date.now() * 0.004) * 2;
+          strokeStyle = '#f472b6';
+          shadowColor = '#f472b6';
+          shadowBlur = dojoPulse;
+          
+          // Draw wood planks, grain lines, and gold corner brackets
+          drawExtra = () => {
+            // Wood plank horizontal seams
+            ctx.strokeStyle = '#1c0a00';
+            ctx.lineWidth = 1.2;
+            const plankH = plat.height / 3;
+            for (let py = plat.y + plankH; py < plat.y + plat.height; py += plankH) {
+              ctx.beginPath();
+              ctx.moveTo(plat.x, py);
+              ctx.lineTo(plat.x + plat.width, py);
+              ctx.stroke();
+            }
+            // Vertical plank joint seams
+            for (let px = plat.x + 30; px < plat.x + plat.width; px += 45) {
+              ctx.beginPath();
+              ctx.moveTo(px, plat.y);
+              ctx.lineTo(px, plat.y + plat.height);
+              ctx.stroke();
+            }
+            // Faint wood grain wave lines
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.07)';
+            ctx.lineWidth = 0.8;
+            for (let gy = plat.y + 3; gy < plat.y + plat.height; gy += 4) {
+              ctx.beginPath();
+              ctx.moveTo(plat.x, gy);
+              ctx.quadraticCurveTo(plat.x + plat.width * 0.5, gy + Math.sin(gy) * 2, plat.x + plat.width, gy);
+              ctx.stroke();
+            }
+            
+            // Gold corner caps
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(plat.x, plat.y, 6, plat.height);
+            ctx.fillRect(plat.x + plat.width - 6, plat.y, 6, plat.height);
+          };
+          break;
+
+        case 'neon_rooftop':
+          // Dark steel girder background
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+          
+          const energyPulse = 10 + Math.sin(Date.now() * 0.008) * 3;
+          strokeStyle = '#00f0ff';
+          shadowColor = '#00f0ff';
+          shadowBlur = energyPulse;
+          
+          // Steel X-truss bracing lines and blinking red hazard lights
+          drawExtra = () => {
+            // Steel top/bottom beams
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(plat.x, plat.y, plat.width, 3);
+            ctx.fillRect(plat.x, plat.y + plat.height - 3, plat.width, 3);
+            
+            // Diagonal truss beams
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.5;
+            const stepX = plat.width / 4;
+            for (let tx = plat.x; tx < plat.x + plat.width; tx += stepX) {
+              ctx.beginPath();
+              ctx.moveTo(tx, plat.y + 3);
+              ctx.lineTo(tx + stepX, plat.y + plat.height - 3);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(tx + stepX, plat.y + 3);
+              ctx.lineTo(tx, plat.y + plat.height - 3);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(tx, plat.y);
+              ctx.lineTo(tx, plat.y + plat.height);
+              ctx.stroke();
+            }
+            
+            // Steel rivets
+            ctx.fillStyle = '#94a3b8';
+            for (let rx = plat.x + 4; rx < plat.x + plat.width; rx += stepX) {
+              ctx.beginPath();
+              ctx.arc(rx, plat.y + 5, 1, 0, Math.PI * 2);
+              ctx.arc(rx, plat.y + plat.height - 5, 1, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            
+            // Blinking red warning lights at the platform edges
+            const isLightOn = Math.sin(Date.now() * 0.006) > 0;
+            ctx.fillStyle = isLightOn ? '#ef4444' : '#7f1d1d';
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = isLightOn ? 8 : 0;
+            ctx.beginPath();
+            ctx.arc(plat.x + 3, plat.y + plat.height * 0.5, 2.5, 0, Math.PI * 2);
+            ctx.arc(plat.x + plat.width - 3, plat.y + plat.height * 0.5, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          };
+          break;
+
+        case 'zen_garden':
+          // Grey stone blocks background
+          ctx.fillStyle = '#292524';
+          ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+          
+          strokeStyle = '#22c55e'; // green moss glow
+          shadowColor = '#22c55e';
+          shadowBlur = 8;
+          
+          // Brick seams, organic moss spots, and swaying vines
+          drawExtra = () => {
+            // Brick layout mortar lines
+            ctx.strokeStyle = '#1c1917';
+            ctx.lineWidth = 1.5;
+            const stoneH = plat.height / 2;
+            ctx.beginPath();
+            ctx.moveTo(plat.x, plat.y + stoneH);
+            ctx.lineTo(plat.x + plat.width, plat.y + stoneH);
+            ctx.stroke();
+            const stoneW = 20;
+            for (let sx = plat.x + stoneW; sx < plat.x + plat.width; sx += stoneW * 2) {
+              ctx.beginPath();
+              ctx.moveTo(sx, plat.y);
+              ctx.lineTo(sx, plat.y + stoneH);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(sx + stoneW, plat.y + stoneH);
+              ctx.lineTo(sx + stoneW, plat.y + plat.height);
+              ctx.stroke();
+            }
+            
+            // Moss growth patches on bricks
+            ctx.fillStyle = '#15803d';
+            for (let mx = plat.x + 8; mx < plat.x + plat.width; mx += 24) {
+              if (Math.sin(mx) > 0) {
+                ctx.beginPath();
+                ctx.arc(mx, plat.y + 2, 3, 0, Math.PI * 2);
+                ctx.arc(mx + 3, plat.y + 3, 2, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            }
+            
+            // Swaying vines in the wind
+            ctx.strokeStyle = '#15803d';
+            ctx.lineWidth = 1.5;
+            const wind = Math.sin(Date.now() * 0.0025 + plat.x) * 4;
+            
+            ctx.beginPath();
+            ctx.moveTo(plat.x + 15, plat.y + plat.height);
+            ctx.quadraticCurveTo(plat.x + 15 + wind * 0.5, plat.y + plat.height + 6, plat.x + 15 + wind, plat.y + plat.height + 14);
+            
+            ctx.moveTo(plat.x + plat.width - 25, plat.y + plat.height);
+            ctx.quadraticCurveTo(plat.x + plat.width - 25 + wind * 0.5, plat.y + plat.height + 8, plat.x + plat.width - 25 + wind, plat.y + plat.height + 17);
+            ctx.stroke();
+          };
+          break;
+
+        case 'magma_cavern':
+          // Dark basalt rock background
+          ctx.fillStyle = '#1c0a0a';
+          ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+          
+          strokeStyle = '#ea580c';
+          shadowColor = '#ea580c';
+          shadowBlur = 14;
+          
+          // Pulsing orange magma cracks, rock facets, and rising heat waves
+          drawExtra = () => {
+            const crackPulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.4;
+            ctx.strokeStyle = `rgba(249, 115, 22, ${crackPulse})`;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            
+            // Draw polygon cracks separating basalt stones
+            for (let cx = plat.x + 15; cx < plat.x + plat.width; cx += 20) {
+              ctx.moveTo(cx, plat.y);
+              ctx.lineTo(cx + Math.sin(cx) * 5, plat.y + plat.height);
+              
+              ctx.moveTo(cx - 10, plat.y + plat.height * 0.5);
+              ctx.lineTo(cx + 10, plat.y + plat.height * 0.5 + Math.cos(cx) * 3);
+            }
+            ctx.stroke();
+
+            // Rising heat wave lines
+            const heatTime = Date.now() * 0.004;
+            ctx.strokeStyle = 'rgba(234, 88, 12, 0.16)';
+            ctx.lineWidth = 1;
+            for (let hx = plat.x + 12; hx < plat.x + plat.width - 10; hx += 24) {
+              const offset = Math.sin(heatTime + hx) * 2.5;
+              const rise = (heatTime * 12 + hx) % 15;
+              ctx.beginPath();
+              ctx.moveTo(hx + offset, plat.y - rise);
+              ctx.lineTo(hx + offset * 1.3, plat.y - rise - 10);
+              ctx.stroke();
+            }
+          };
+          break;
+
+        case 'stormy_temple':
+          // Dark blue slate background
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+          
+          strokeStyle = '#e2e8f0'; // rain slick highlight
+          shadowColor = '#94a3b8';
+          shadowBlur = 6;
+
+          // Clay shingle tiles, top rain splatters, and dripping water droplets
+          drawExtra = () => {
+            // Pagoda shingles (scallop pattern curves)
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.2;
+            const shingleW = 12;
+            const shingleH = plat.height / 2;
+            for (let row = 0; row < 2; row++) {
+              const ry = plat.y + row * shingleH;
+              const shiftX = row * (shingleW * 0.5);
+              for (let sx = plat.x - shingleW + shiftX; sx < plat.x + plat.width; sx += shingleW) {
+                ctx.beginPath();
+                ctx.arc(sx + shingleW * 0.5, ry + 2, shingleW * 0.5, Math.PI, 0, false);
+                ctx.stroke();
+              }
+            }
+
+            // Rain splashes on top of the platform
+            const splashTime = Date.now() * 0.012;
+            ctx.strokeStyle = 'rgba(226, 232, 240, 0.25)';
+            ctx.lineWidth = 0.8;
+            for (let sx = plat.x + 15; sx < plat.x + plat.width; sx += 32) {
+              const offset = (splashTime + sx) % 8;
+              if (offset < 2.5) {
+                ctx.beginPath();
+                ctx.ellipse(sx, plat.y, offset * 1.6, offset * 0.4, 0, 0, Math.PI * 2);
+                ctx.stroke();
+              }
+            }
+
+            // Dripping droplets
+            const dripProgress = (Date.now() * 0.0018 + plat.x) % 1;
+            const dripY1 = plat.y + plat.height + dripProgress * 42;
+            const dripY2 = plat.y + plat.height + ((dripProgress + 0.5) % 1) * 42;
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+            
+            // Left corner drop
+            if (dripY1 < plat.y + plat.height + 40) {
+              ctx.beginPath();
+              ctx.arc(plat.x + 4, dripY1, 1.8, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            // Right corner drop
+            if (dripY2 < plat.y + plat.height + 40) {
+              ctx.beginPath();
+              ctx.arc(plat.x + plat.width - 4, dripY2, 1.8, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          };
+          break;
+      }
+
+      // Draw top highlight edge
+      ctx.shadowBlur = shadowBlur;
+      ctx.shadowColor = shadowColor;
+      ctx.strokeStyle = strokeStyle;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(plat.x, plat.y);
       ctx.lineTo(plat.x + plat.width, plat.y);
       ctx.stroke();
-      ctx.shadowBlur = 0;
+
+      // Draw extras
+      if (drawExtra) {
+        ctx.shadowBlur = 0; // disable shadow for overlays
+        drawExtra();
+      }
+      
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -956,70 +1421,24 @@ export class GameEngine {
     const ctx = this.ctx;
     ctx.save();
     for (const h of this.activeHazards) {
-      const t = h.timer;
       const warnAlpha = h.warningTimer > 0 ? (Math.sin(Date.now() * 0.015) * 0.5 + 0.5) * 0.7 : 0;
       if (h.type === 'lava') {
-        // Warning circle on ground
         if (warnAlpha > 0) {
-          ctx.save();
-          ctx.globalAlpha = warnAlpha;
-          ctx.fillStyle = '#f97316';
-          ctx.beginPath();
-          ctx.ellipse(h.x, this.groundY, 50, 10, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+          this.effects.drawWarningSignal(ctx, 'lava', h.x, this.groundY, 50, warnAlpha);
         }
         if (h.warningTimer <= 0) {
-          // Active lava spout
           const flameH = 80 + Math.random() * 40;
-          ctx.save();
-          ctx.shadowBlur = 20;
-          ctx.shadowColor = '#f97316';
-          ctx.fillStyle = 'rgba(251,146,60,0.8)';
-          ctx.beginPath();
-          ctx.moveTo(h.x - 18, this.groundY);
-          ctx.quadraticCurveTo(h.x, this.groundY - flameH, h.x + 18, this.groundY);
-          ctx.fill();
-          ctx.fillStyle = 'rgba(253,224,71,0.5)';
-          ctx.beginPath();
-          ctx.moveTo(h.x - 9, this.groundY);
-          ctx.quadraticCurveTo(h.x, this.groundY - flameH * 0.6, h.x + 9, this.groundY);
-          ctx.fill();
-          ctx.restore();
+          this.effects.drawLavaSpout(ctx, h.x, this.groundY, flameH);
         }
       } else if (h.type === 'lightning') {
-        // Warning zone marker from sky
         if (warnAlpha > 0) {
-          ctx.save();
-          ctx.globalAlpha = warnAlpha;
-          ctx.strokeStyle = '#fbbf24';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([6, 4]);
-          ctx.beginPath();
-          ctx.moveTo(h.x, 0);
-          ctx.lineTo(h.x, this.groundY);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.restore();
+          this.effects.drawWarningSignal(ctx, 'lightning', h.x, this.groundY, 0, warnAlpha);
         }
         if (h.warningTimer <= 0) {
-          // Actual lightning bolt
-          ctx.save();
-          ctx.shadowBlur = 24;
-          ctx.shadowColor = '#fbbf24';
-          ctx.strokeStyle = '#fde68a';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          let lx = h.x, ly = 0;
-          while (ly < this.groundY) {
-            const nlx = lx + (Math.random() - 0.5) * 30;
-            const nly = ly + 30 + Math.random() * 20;
-            ctx.lineTo(nlx, Math.min(nly, this.groundY));
-            lx = nlx; ly = nly;
-          }
-          ctx.stroke();
-          ctx.restore();
+          this.effects.drawLightning(ctx, h.x, 0, this.groundY);
         }
+      } else if (h.type === 'drone_laser') {
+        this.effects.drawDroneLaser(ctx, h.x, h.y, this.groundY, h.color, h.timer, h.warningTimer, warnAlpha);
       }
     }
     ctx.restore();
@@ -1088,59 +1507,124 @@ export class GameEngine {
   }
 
   drawCyberpunkDojo(midX) {
+    // High-graphics Cyberpunk Sky Gradient
     const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#06060c');
-    skyGrad.addColorStop(0.5, '#0c0f1d');
-    skyGrad.addColorStop(1, '#11132a');
+    skyGrad.addColorStop(0, '#04020b');
+    skyGrad.addColorStop(0.35, '#0c0a21');
+    skyGrad.addColorStop(0.7, '#1b143a');
+    skyGrad.addColorStop(1, '#0c071d');
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
+    // Parallax background skyscrapers (Cyberpunk cityscape)
     this.ctx.save();
-    this.ctx.fillStyle = '#070914';
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, this.groundY);
-    this.ctx.lineTo(0, this.groundY - 110);
-    this.ctx.quadraticCurveTo(this.width * 0.22, this.groundY - 160, this.width * 0.38, this.groundY - 100);
-    this.ctx.lineTo(this.width * 0.42, this.groundY - 100);
-    this.ctx.lineTo(midX - 55, this.groundY - 100);
-    this.ctx.lineTo(midX, this.groundY - 180);
-    this.ctx.lineTo(midX + 55, this.groundY - 100);
-    this.ctx.lineTo(this.width * 0.62, this.groundY - 100);
-    this.ctx.quadraticCurveTo(this.width * 0.78, this.groundY - 145, this.width, this.groundY - 90);
-    this.ctx.lineTo(this.width, this.groundY);
-    this.ctx.closePath();
-    this.ctx.fill();
-
-    this.ctx.fillStyle = 'rgba(244, 114, 182, 0.12)';
-    this.ctx.beginPath();
-    this.ctx.moveTo(midX - 18, this.groundY - 155);
-    this.ctx.lineTo(midX, this.groundY - 180);
-    this.ctx.lineTo(midX + 18, this.groundY - 155);
-    this.ctx.lineTo(midX + 10, this.groundY - 148);
-    this.ctx.lineTo(midX, this.groundY - 152);
-    this.ctx.lineTo(midX - 10, this.groundY - 148);
-    this.ctx.closePath();
-    this.ctx.fill();
+    this.ctx.fillStyle = '#060410';
+    // Left tower
+    this.ctx.fillRect(this.width * 0.05, this.groundY - 320, 65, 320);
+    this.ctx.fillRect(this.width * 0.05 + 15, this.groundY - 340, 35, 20);
+    // Right tower
+    this.ctx.fillRect(this.width * 0.82, this.groundY - 290, 75, 290);
+    // Add tiny glowing yellow window dots to skyscrapers
+    this.ctx.fillStyle = 'rgba(253, 224, 71, 0.4)';
+    for (let wy = this.groundY - 280; wy < this.groundY - 20; wy += 40) {
+      this.ctx.fillRect(this.width * 0.05 + 15, wy, 4, 8);
+      this.ctx.fillRect(this.width * 0.05 + 30, wy + 15, 4, 8);
+      this.ctx.fillRect(this.width * 0.82 + 20, wy, 4, 8);
+      this.ctx.fillRect(this.width * 0.82 + 45, wy + 20, 4, 8);
+    }
     this.ctx.restore();
 
+    // Dojo center circular glowing emblem behind the scroll
+    this.ctx.save();
+    this.ctx.globalAlpha = 0.15 + Math.sin(Date.now() * 0.003) * 0.05; // soft breathing glow
+    this.ctx.shadowBlur = 20;
+    this.ctx.shadowColor = '#f472b6';
+    this.ctx.strokeStyle = '#f472b6';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.arc(midX, 160, 75, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Dojo Wall / Shoji Screens (Glowing background panel)
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(29, 26, 48, 0.8)';
+    this.ctx.fillRect(this.width * 0.15, 60, this.width * 0.7, this.groundY - 60);
+    
+    // Shoji wooden grid lines
+    this.ctx.strokeStyle = '#020005';
+    this.ctx.lineWidth = 2.5;
+    const startX = this.width * 0.15;
+    const endX = this.width * 0.85;
+    // Vertical posts
+    for (let sx = startX; sx <= endX; sx += (endX - startX) / 6) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(sx, 60);
+      this.ctx.lineTo(sx, this.groundY);
+      this.ctx.stroke();
+    }
+    // Horizontal slats
+    for (let sy = 60; sy <= this.groundY; sy += 35) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(startX, sy);
+      this.ctx.lineTo(endX, sy);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
+
+    // Center Hanging Calligraphy Scroll
+    this.ctx.save();
+    this.ctx.fillStyle = '#f8fafc'; // rice paper scroll
+    this.ctx.fillRect(midX - 25, 80, 50, 160);
+    
+    // Scroll wooden rollers
+    this.ctx.fillStyle = '#451a03';
+    this.ctx.fillRect(midX - 28, 76, 56, 6);
+    this.ctx.fillRect(midX - 28, 238, 56, 8);
+
+    // Kanji Character (simple stylized bold brush stroke representation of "武" - Budo)
+    this.ctx.strokeStyle = '#0f172a';
+    this.ctx.lineWidth = 4;
+    this.ctx.lineCap = 'round';
+    this.ctx.beginPath();
+    // top horizontal stroke
+    this.ctx.moveTo(midX - 12, 100);
+    this.ctx.lineTo(midX + 12, 100);
+    // main downward brush stroke
+    this.ctx.moveTo(midX - 3, 94);
+    this.ctx.lineTo(midX - 3, 210);
+    // cross slashes
+    this.ctx.moveTo(midX - 14, 135);
+    this.ctx.lineTo(midX + 14, 135);
+    this.ctx.moveTo(midX - 10, 175);
+    this.ctx.lineTo(midX + 10, 165);
+    // sweep brush
+    this.ctx.moveTo(midX - 3, 210);
+    this.ctx.quadraticCurveTo(midX + 14, 215, midX + 18, 185);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Glowing Sakura / Cherry Blossom Branch (overlaying on the left)
     this.ctx.save();
     this.ctx.fillStyle = '#0f172a';
     this.ctx.lineWidth = 9;
     this.ctx.lineCap = 'round';
     this.ctx.beginPath();
-    this.ctx.moveTo(70, this.groundY);
-    this.ctx.quadraticCurveTo(60, this.groundY - 55, 45, this.groundY - 95);
-    this.ctx.quadraticCurveTo(48, this.groundY - 125, 25, this.groundY - 145);
+    this.ctx.moveTo(0, this.groundY - 140);
+    this.ctx.quadraticCurveTo(80, this.groundY - 200, 120, this.groundY - 240);
+    this.ctx.quadraticCurveTo(150, this.groundY - 280, 200, this.groundY - 290);
     this.ctx.stroke();
-    this.ctx.lineWidth = 5.5;
+    // Smaller sub-branch
+    this.ctx.lineWidth = 5;
     this.ctx.beginPath();
-    this.ctx.moveTo(52, this.groundY - 75);
-    this.ctx.quadraticCurveTo(80, this.groundY - 105, 95, this.groundY - 115);
+    this.ctx.moveTo(110, this.groundY - 235);
+    this.ctx.quadraticCurveTo(160, this.groundY - 220, 185, this.groundY - 230);
     this.ctx.stroke();
-    this.ctx.shadowBlur = 18;
-    this.ctx.shadowColor = '#f472b6';
-    this.ctx.fillStyle = 'rgba(244, 114, 182, 0.88)';
 
+    // Glowing pink foliage clouds (Flipaclip style petals)
+    this.ctx.shadowBlur = 24;
+    this.ctx.shadowColor = '#f472b6';
+    this.ctx.fillStyle = 'rgba(244, 114, 182, 0.9)';
     const drawFoliage = (x, y, r) => {
       this.ctx.beginPath();
       this.ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -1149,107 +1633,630 @@ export class GameEngine {
       this.ctx.arc(x + r * 0.2, y + r * 0.5, r * 0.75, 0, Math.PI * 2);
       this.ctx.fill();
     };
-
-    drawFoliage(25, this.groundY - 150, 18);
-    drawFoliage(95, this.groundY - 120, 15);
-    drawFoliage(55, this.groundY - 155, 13);
+    drawFoliage(120, this.groundY - 245, 14);
+    drawFoliage(190, this.groundY - 285, 16);
+    drawFoliage(180, this.groundY - 230, 10);
     this.ctx.restore();
 
+    // Dojo Roof Eaves at the top of the screen
     this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(236, 72, 153, 0.06)';
-    this.ctx.lineWidth = 1.5;
+    this.ctx.fillStyle = '#1e1b4b'; // dark Indigo wood
     this.ctx.beginPath();
-    this.ctx.moveTo(midX - 180, this.groundY);
-    this.ctx.lineTo(midX - 180, this.groundY - 140);
-    this.ctx.lineTo(midX - 220, this.groundY - 140);
-    this.ctx.quadraticCurveTo(midX - 230, this.groundY - 145, midX - 240, this.groundY - 165);
-    this.ctx.lineTo(midX + 240, this.groundY - 165);
-    this.ctx.quadraticCurveTo(midX + 230, this.groundY - 145, midX + 220, this.groundY - 140);
-    this.ctx.lineTo(midX + 180, this.groundY - 140);
-    this.ctx.lineTo(midX + 180, this.groundY);
+    this.ctx.moveTo(0, 0);
+    this.ctx.lineTo(this.width, 0);
+    this.ctx.lineTo(this.width, 24);
+    // curved bottom dojo roof profile
+    this.ctx.quadraticCurveTo(midX, 48, 0, 24);
+    this.ctx.closePath();
+    this.ctx.fill();
+    
+    // Gold roof trim
+    this.ctx.strokeStyle = '#fbbf24';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, 24);
+    this.ctx.quadraticCurveTo(midX, 48, this.width, 24);
     this.ctx.stroke();
-    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.04)';
-    this.ctx.lineWidth = 3.5;
-    this.ctx.strokeRect(100, 0, 40, this.groundY);
-    this.ctx.strokeRect(this.width - 140, 0, 40, this.groundY);
-    this.ctx.strokeRect(0, 80, this.width, 25);
     this.ctx.restore();
 
+    // High-Graphics Ground Dojo Mats (Tatami grid)
+    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
+    groundGrad.addColorStop(0, '#14111f');
+    groundGrad.addColorStop(1, '#050308');
+    this.ctx.fillStyle = groundGrad;
+    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
+
+    // Neon Tatami grid border underglow - BATCHED path!
     this.ctx.save();
-    this.ctx.shadowBlur = 12;
+    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)'; // glowing cyan tatami lines
+    this.ctx.shadowBlur = 10;
+    this.ctx.shadowColor = 'rgba(0, 240, 255, 0.6)';
+    this.ctx.lineWidth = 1.8;
+    this.ctx.beginPath();
+    for (let i = -10; i < 30; i++) {
+      this.ctx.moveTo(midX + i * 40, this.groundY);
+      this.ctx.lineTo(midX + i * 140, this.height);
+    }
+    // Horizontal tatami borders
+    for (let y = this.groundY; y < this.height; y += 22) {
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(this.width, y);
+    }
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Dojo floor top mahogany frame
+    this.ctx.save();
+    const floorMahoganyGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.groundY + 16);
+    floorMahoganyGrad.addColorStop(0, '#451a03'); // mahogany
+    floorMahoganyGrad.addColorStop(1, '#1c0a00');
+    this.ctx.fillStyle = floorMahoganyGrad;
+    this.ctx.fillRect(0, this.groundY, this.width, 16);
+    
+    // Glowing pink top edge
+    this.ctx.strokeStyle = '#f472b6';
+    this.ctx.shadowBlur = 10;
+    this.ctx.shadowColor = '#f472b6';
+    this.ctx.lineWidth = 2.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, this.groundY);
+    this.ctx.lineTo(this.width, this.groundY);
+    this.ctx.stroke();
+    
+    // Gold brackets spaced across the width
+    this.ctx.shadowBlur = 0;
+    this.ctx.fillStyle = '#fbbf24';
+    for (let bx = 0; bx < this.width; bx += 180) {
+      this.ctx.fillRect(bx, this.groundY, 8, 16);
+    }
+    this.ctx.restore();
+
+    // Glowing Neon Lanterns (hanging from sky ceiling)
+    this.ctx.save();
+    this.ctx.shadowBlur = 16;
     this.ctx.shadowColor = '#f59e0b';
-    this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
-    this.ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
-    this.ctx.lineWidth = 2;
+    this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.9)';
+    this.ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+    this.ctx.lineWidth = 2.5;
     const drawLantern = (x, y) => {
+      // Cord line
       this.ctx.beginPath();
-      this.ctx.moveTo(x, 105);
+      this.ctx.moveTo(x, 0);
       this.ctx.lineTo(x, y);
       this.ctx.stroke();
+      // Glowing body
       this.ctx.beginPath();
-      this.ctx.roundRect(x - 7, y, 14, 22, 4);
+      this.ctx.roundRect(x - 8, y, 16, 26, 6);
       this.ctx.fill();
       this.ctx.stroke();
+      // Black wood caps
       this.ctx.fillStyle = '#0f172a';
-      this.ctx.fillRect(x - 8, y - 2, 16, 4);
-      this.ctx.fillRect(x - 8, y + 20, 16, 4);
-      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+      this.ctx.fillRect(x - 10, y - 2, 20, 5);
+      this.ctx.fillRect(x - 10, y + 23, 20, 5);
+      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
     };
-    drawLantern(this.width * 0.18, 125);
-    drawLantern(this.width * 0.32, 125);
-    drawLantern(this.width * 0.68, 125);
-    drawLantern(this.width * 0.82, 125);
+    drawLantern(this.width * 0.12, 105);
+    drawLantern(this.width * 0.28, 90);
+    drawLantern(this.width * 0.72, 90);
+    drawLantern(this.width * 0.88, 105);
     this.ctx.restore();
+  }
 
-    this.ctx.save();
-    this.ctx.shadowBlur = 14;
-    this.ctx.shadowColor = '#00f0ff';
-    this.ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
-    this.ctx.fillRect(108, 125, 24, 80);
-    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.7)';
-    this.ctx.lineWidth = 1.5;
-    this.ctx.strokeRect(108, 125, 24, 80);
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.font = '900 15px "Outfit", "Inter", sans-serif';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText('龍', 120, 145);
-    this.ctx.fillText('闘', 120, 185);
-    this.ctx.shadowColor = '#ec4899';
-    this.ctx.fillStyle = 'rgba(236, 72, 153, 0.12)';
-    this.ctx.fillRect(this.width - 132, 125, 24, 80);
-    this.ctx.strokeStyle = 'rgba(236, 72, 153, 0.7)';
-    this.ctx.strokeRect(this.width - 132, 125, 24, 80);
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fillText('虎', this.width - 120, 145);
-    this.ctx.fillText('極', this.width - 120, 185);
-    this.ctx.restore();
+  drawNeonRooftop(midX) {
+    // High-Graphics Cyberpunk Sky (Deep dark blue to hot pink horizon)
+    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+    skyGrad.addColorStop(0, '#05030f');
+    skyGrad.addColorStop(0.45, '#120f2b');
+    skyGrad.addColorStop(0.8, '#32163b');
+    skyGrad.addColorStop(1, '#1b0e27');
+    this.ctx.fillStyle = skyGrad;
+    this.ctx.fillRect(0, 0, this.width, this.height);
 
+    // Glowing Holographic Neon Dragon in sky
     this.ctx.save();
+    this.ctx.globalAlpha = 0.07 + Math.sin(Date.now() * 0.003) * 0.02; // pulsing holo opacity
     this.ctx.shadowBlur = 15;
     this.ctx.shadowColor = '#00f0ff';
-    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.7)';
-    this.ctx.lineWidth = 4;
+    this.ctx.strokeStyle = '#00f0ff';
+    this.ctx.lineWidth = 2.5;
+    
+    // Draw simplified stylized dragon wave path in sky
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.width * 0.2, 110);
+    this.ctx.bezierCurveTo(this.width * 0.3, 60, this.width * 0.4, 160, this.width * 0.5, 110);
+    this.ctx.bezierCurveTo(this.width * 0.6, 60, this.width * 0.7, 160, this.width * 0.8, 110);
+    this.ctx.stroke();
+    
+    // Dragon head whisker circle detail
+    this.ctx.beginPath();
+    this.ctx.arc(this.width * 0.8, 110, 8, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Parallax background buildings with neon window matrices
+    this.ctx.save();
+    const handleBuilding = (x, w, h, baseColor, neonColor) => {
+      // Silhouette shadow (acts as off window background)
+      this.ctx.fillStyle = baseColor;
+      this.ctx.fillRect(x, this.groundY - h, w, h);
+      
+      // Batch all glowing windows to minimize canvas fillStyle state changes!
+      this.ctx.save();
+      this.ctx.fillStyle = neonColor;
+      this.ctx.globalAlpha = 0.35;
+      
+      this.ctx.beginPath();
+      const flickerTime = Math.floor(Date.now() / 900);
+      for (let wx = x + 15; wx < x + w - 15; wx += 22) {
+        for (let wy = this.groundY - h + 20; wy < this.groundY - 15; wy += 35) {
+          // Fast pseudo-random flickering without expensive trigonometric functions
+          const hash = (wx * 17 + wy * 31 + flickerTime) % 100;
+          if (hash > 40) {
+            this.ctx.rect(wx, wy, 8, 15);
+          }
+        }
+      }
+      this.ctx.fill();
+      this.ctx.restore();
+    };
+    // Far back layer
+    handleBuilding(15, 100, 240, '#0c071d', 'rgba(0, 240, 255, 0.45)');
+    handleBuilding(160, 120, 200, '#0a0518', 'rgba(236, 72, 153, 0.45)');
+    handleBuilding(320, 140, 280, '#070311', 'rgba(0, 240, 255, 0.45)');
+    handleBuilding(510, 150, 250, '#0b0619', 'rgba(253, 224, 71, 0.4)');
+    handleBuilding(700, 110, 210, '#090414', 'rgba(236, 72, 153, 0.45)');
+    handleBuilding(850, 100, 270, '#0c071c', 'rgba(0, 240, 255, 0.45)');
+    this.ctx.restore();
+
+    // Giant neon billboard (Hot pink & Cyberpunk cyan glow)
+    this.ctx.save();
+    this.ctx.shadowBlur = 20;
+    this.ctx.shadowColor = '#ec4899';
+    this.ctx.strokeStyle = '#ec4899';
+    this.ctx.lineWidth = 3.5;
+    this.ctx.strokeRect(midX - 100, 60, 200, 70);
+    this.ctx.fillStyle = 'rgba(236, 72, 153, 0.15)';
+    this.ctx.fillRect(midX - 100, 60, 200, 70);
+    // Neon lettering inside
+    this.ctx.fillStyle = '#fdf2f8';
+    this.ctx.font = 'bold 36px "Inter", "Outfit", sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText('STRIKE', midX, 95);
+    this.ctx.restore();
+
+    // High-Graphics Concrete Roof floor
+    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
+    groundGrad.addColorStop(0, '#0f172a');
+    groundGrad.addColorStop(1, '#05070e');
+    this.ctx.fillStyle = groundGrad;
+    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
+
+    // Glowing Neon Grids on the floor (cyber-look cyan grid matching platforms)
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)'; 
+    this.ctx.shadowBlur = 8;
+    this.ctx.shadowColor = '#00f0ff';
+    this.ctx.lineWidth = 1.5;
+    for (let i = -10; i < 30; i++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(midX + i * 38, this.groundY);
+      this.ctx.lineTo(midX + i * 130, this.height);
+      this.ctx.stroke();
+    }
+    for (let y = this.groundY; y < this.height; y += 18) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(this.width, y);
+      this.ctx.stroke();
+    }
+    
+    // Glowing cyan top edge
+    this.ctx.strokeStyle = '#00f0ff';
+    this.ctx.shadowBlur = 12;
+    this.ctx.lineWidth = 2.5;
     this.ctx.beginPath();
     this.ctx.moveTo(0, this.groundY);
     this.ctx.lineTo(this.width, this.groundY);
     this.ctx.stroke();
     this.ctx.restore();
+  }
 
+  drawZenGarden(midX) {
+    // Emerald green-teal to deep space sky
+    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+    skyGrad.addColorStop(0, '#040b08');
+    skyGrad.addColorStop(0.45, '#091e17');
+    skyGrad.addColorStop(1, '#050c09');
+    this.ctx.fillStyle = skyGrad;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    // Glowing Full Moon in the center-top
+    this.ctx.save();
+    this.ctx.shadowBlur = 45;
+    this.ctx.shadowColor = 'rgba(226, 232, 240, 0.45)';
+    this.ctx.fillStyle = '#f8fafc';
+    this.ctx.beginPath();
+    this.ctx.arc(midX, 90, 52, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // Arching Wooden Zen Bridge in the background
+    this.ctx.save();
+    this.ctx.strokeStyle = '#2d0a0a'; // dark red wood bridge
+    this.ctx.lineWidth = 7;
+    this.ctx.beginPath();
+    this.ctx.arc(midX, this.groundY + 120, 200, -Math.PI * 0.82, -Math.PI * 0.18);
+    this.ctx.stroke();
+    
+    // Bridge vertical handrail posts - BATCHED!
+    this.ctx.strokeStyle = '#2d0a0a';
+    this.ctx.lineWidth = 3.5;
+    this.ctx.beginPath();
+    for (let angle = -Math.PI * 0.78; angle <= -Math.PI * 0.22; angle += 0.12) {
+      const px = midX + Math.cos(angle) * 200;
+      const py = (this.groundY + 120) + Math.sin(angle) * 200;
+      this.ctx.moveTo(px, py);
+      this.ctx.lineTo(px, py - 22);
+    }
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Silhouettes of Distant Mountains
+    this.ctx.save();
+    this.ctx.fillStyle = '#06130f';
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, this.groundY);
+    this.ctx.lineTo(0, this.groundY - 120);
+    this.ctx.quadraticCurveTo(this.width * 0.22, this.groundY - 180, this.width * 0.45, this.groundY - 110);
+    this.ctx.lineTo(this.width * 0.55, this.groundY - 110);
+    this.ctx.quadraticCurveTo(this.width * 0.78, this.groundY - 190, this.width, this.groundY - 100);
+    this.ctx.lineTo(this.width, this.groundY);
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // Pine Trees / Bamboo Silhouettes on Sides
+    this.ctx.save();
+    this.ctx.fillStyle = '#09211a';
+    // Left bamboo stalks
+    this.ctx.fillRect(35, this.groundY - 260, 6, 260);
+    this.ctx.fillRect(95, this.groundY - 240, 5, 240);
+    // Right bamboo stalks
+    this.ctx.fillRect(this.width - 45, this.groundY - 270, 7, 270);
+    this.ctx.fillRect(this.width - 105, this.groundY - 230, 5, 230);
+    this.ctx.restore();
+
+    // Glowing Stone Pagoda Shrine in the center background
+    this.ctx.save();
+    this.ctx.shadowBlur = 18;
+    this.ctx.shadowColor = '#5eead4'; // Mint green glow
+    this.ctx.fillStyle = 'rgba(94, 234, 212, 0.85)';
+    this.ctx.beginPath();
+    this.ctx.ellipse(midX, this.groundY - 115, 22, 28, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Stone pagoda frame
+    this.ctx.fillStyle = '#1e293b';
+    this.ctx.fillRect(midX - 25, this.groundY - 80, 50, 80); // base post
+    // lantern roof
+    this.ctx.beginPath();
+    this.ctx.moveTo(midX - 35, this.groundY - 143);
+    this.ctx.lineTo(midX, this.groundY - 165);
+    this.ctx.lineTo(midX + 35, this.groundY - 143);
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // Combed Zen Sand ground (curves representing water ripples)
     const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
-    groundGrad.addColorStop(0, '#090d16');
-    groundGrad.addColorStop(0.1, '#111827');
-    groundGrad.addColorStop(1, '#030712');
+    groundGrad.addColorStop(0, '#0a231b');
+    groundGrad.addColorStop(1, '#040d0a');
     this.ctx.fillStyle = groundGrad;
     this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
 
+    // Combed zen waves - BATCHED!
     this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(236, 72, 153, 0.15)';
-    this.ctx.lineWidth = 1;
-    for (let i = -10; i < 25; i++) {
+    this.ctx.strokeStyle = 'rgba(34, 197, 94, 0.22)';
+    this.ctx.lineWidth = 1.8;
+    this.ctx.beginPath();
+    for (let y = this.groundY + 18; y < this.height; y += 14) {
+      this.ctx.moveTo(0, y);
+      this.ctx.bezierCurveTo(this.width * 0.25, y - 8, this.width * 0.75, y + 8, this.width, y);
+    }
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Zen Garden stone border
+    this.ctx.save();
+    const floorStoneGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.groundY + 16);
+    floorStoneGrad.addColorStop(0, '#292524'); // stone grey
+    floorStoneGrad.addColorStop(1, '#1c1917');
+    this.ctx.fillStyle = floorStoneGrad;
+    this.ctx.fillRect(0, this.groundY, this.width, 16);
+    
+    // Glowing green top edge
+    this.ctx.strokeStyle = '#22c55e';
+    this.ctx.shadowBlur = 10;
+    this.ctx.shadowColor = '#22c55e';
+    this.ctx.lineWidth = 2.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, this.groundY);
+    this.ctx.lineTo(this.width, this.groundY);
+    this.ctx.stroke();
+    
+    // Hanging moss patches / grass clumps along the stone border
+    this.ctx.shadowBlur = 0;
+    this.ctx.fillStyle = '#15803d';
+    for (let gx = 30; gx < this.width; gx += 120) {
       this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 30, this.groundY);
-      this.ctx.lineTo(midX + i * 90, this.height);
+      this.ctx.arc(gx, this.groundY + 16, 5, 0, Math.PI, false);
+      this.ctx.fill();
+    }
+    this.ctx.restore();
+  }
+
+  drawMagmaCavern(midX) {
+    // Deep crimson cavern sky
+    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+    skyGrad.addColorStop(0, '#1c0303');
+    skyGrad.addColorStop(0.5, '#450a0a');
+    skyGrad.addColorStop(1, '#0e0202');
+    this.ctx.fillStyle = skyGrad;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    // Magma Falls pouring down background cavern cracks
+    const magmaTime = Date.now() * 0.005;
+    this.ctx.save();
+    this.ctx.shadowBlur = 15;
+    this.ctx.shadowColor = '#ea580c';
+    this.ctx.strokeStyle = 'rgba(234, 88, 12, 0.65)';
+    this.ctx.lineWidth = 10;
+    
+    // Left magma waterfall
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.width * 0.28, 0);
+    this.ctx.lineTo(this.width * 0.28, this.groundY - 50);
+    this.ctx.stroke();
+    
+    // Right magma waterfall
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.width * 0.72, 0);
+    this.ctx.lineTo(this.width * 0.72, this.groundY - 40);
+    this.ctx.stroke();
+    
+    // Flow animation dashes
+    this.ctx.strokeStyle = '#fbbf24';
+    this.ctx.lineWidth = 3;
+    this.ctx.setLineDash([12, 28]);
+    this.ctx.lineDashOffset = magmaTime * 20;
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.width * 0.28, 0);
+    this.ctx.lineTo(this.width * 0.28, this.groundY - 50);
+    this.ctx.moveTo(this.width * 0.72, 0);
+    this.ctx.lineTo(this.width * 0.72, this.groundY - 40);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Parallax background cavern arches & stalactites
+    this.ctx.save();
+    this.ctx.fillStyle = '#080101';
+    // Arches
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, this.groundY);
+    this.ctx.lineTo(0, this.groundY - 140);
+    this.ctx.quadraticCurveTo(this.width * 0.25, this.groundY - 190, this.width * 0.5, this.groundY - 130);
+    this.ctx.quadraticCurveTo(this.width * 0.75, this.groundY - 180, this.width, this.groundY - 120);
+    this.ctx.lineTo(this.width, this.groundY);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // Hanging Stalactites from ceiling
+    this.ctx.beginPath();
+    const stalactite = (x, w, h) => {
+      this.ctx.moveTo(x - w*0.5, 0);
+      this.ctx.lineTo(x + w*0.5, 0);
+      this.ctx.lineTo(x, h);
+      this.ctx.closePath();
+    };
+    stalactite(80, 40, 110);
+    stalactite(240, 30, 80);
+    stalactite(this.width - 150, 45, 120);
+    stalactite(this.width - 290, 35, 75);
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // Glowing/boiling lava pool in background
+    const time = Date.now() * 0.003;
+    const wave = Math.sin(time) * 4;
+    this.ctx.save();
+    this.ctx.shadowBlur = 30;
+    this.ctx.shadowColor = '#ea580c'; // rich orange glow
+    
+    // Outer lava pools
+    this.ctx.fillStyle = 'rgba(234, 88, 12, 0.85)';
+    this.ctx.beginPath();
+    this.ctx.ellipse(midX - 180, this.groundY - 30, 110, 38 + wave, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(midX + 220, this.groundY - 25, 130, 45 - wave, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Boiling bubbles - BATCHED!
+    this.ctx.fillStyle = '#fdbb2d';
+    this.ctx.beginPath();
+    const bubble = (bx, by, br) => {
+      const radius = br + Math.sin(time + bx) * (br * 0.35);
+      this.ctx.moveTo(bx + radius, by);
+      this.ctx.arc(bx, by, radius, 0, Math.PI * 2);
+    };
+    bubble(midX - 220, this.groundY - 32, 5);
+    bubble(midX - 140, this.groundY - 26, 7);
+    bubble(midX + 160, this.groundY - 28, 8);
+    bubble(midX + 270, this.groundY - 22, 6);
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // Ground basalt rock floor
+    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
+    groundGrad.addColorStop(0, '#1c0a0a');
+    groundGrad.addColorStop(1, '#0c0202');
+    this.ctx.fillStyle = groundGrad;
+    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
+
+    // Glowing orange magma fractures in the basalt ground
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(249, 115, 22, 0.35)'; // glowing orange floor magma
+    this.ctx.shadowBlur = 12;
+    this.ctx.shadowColor = '#f97316';
+    this.ctx.lineWidth = 1.8;
+    for (let i = -10; i < 28; i++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(midX + i * 38, this.groundY);
+      this.ctx.lineTo(midX + i * 120, this.height);
+      this.ctx.stroke();
+    }
+    for (let y = this.groundY; y < this.height; y += 18) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(this.width, y);
+      this.ctx.stroke();
+    }
+    
+    // Glowing hot lava top edge
+    this.ctx.strokeStyle = '#ea580c';
+    this.ctx.shadowBlur = 14;
+    this.ctx.shadowColor = '#ea580c';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, this.groundY);
+    this.ctx.lineTo(this.width, this.groundY);
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  drawStormyTemple(midX) {
+    const time = Date.now() * 0.002;
+    // Stormy flash: trigger a sky flash randomly on average every 4 seconds
+    const flashTrigger = Math.sin(time) > 0.95;
+    
+    // High-Graphics Sky Gradient
+    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+    if (flashTrigger) {
+      skyGrad.addColorStop(0, '#475569'); // bright storm cloud blue-grey
+      skyGrad.addColorStop(0.5, '#cbd5e1');
+      skyGrad.addColorStop(1, '#1e293b');
+    } else {
+      skyGrad.addColorStop(0, '#0b0d1a'); // dark stormy sky
+      skyGrad.addColorStop(0.5, '#0d111d');
+      skyGrad.addColorStop(1, '#111520');
+    }
+    this.ctx.fillStyle = skyGrad;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    // Parallax background stormy pagoda tower
+    this.ctx.save();
+    this.ctx.fillStyle = '#060812';
+    this.ctx.fillRect(midX - 60, this.groundY - 260, 120, 260); // base tier
+    // Pagoda tier roofs
+    const drawRoof = (ry, rw, rh) => {
+      this.ctx.beginPath();
+      this.ctx.moveTo(midX - rw*0.5, ry);
+      this.ctx.quadraticCurveTo(midX, ry - rh, midX + rw*0.5, ry);
+      this.ctx.lineTo(midX + rw*0.5 + 8, ry + 12);
+      this.ctx.quadraticCurveTo(midX, ry, midX - rw*0.5 - 8, ry + 12);
+      this.ctx.closePath();
+      this.ctx.fill();
+    };
+    drawRoof(this.groundY - 120, 160, 22);
+    drawRoof(this.groundY - 200, 130, 18);
+    drawRoof(this.groundY - 260, 90, 14);
+    this.ctx.restore();
+
+    // Drifting Volumetric Storm Clouds (layered circles)
+    this.ctx.save();
+    this.ctx.fillStyle = flashTrigger ? 'rgba(100, 116, 139, 0.4)' : 'rgba(15, 23, 42, 0.4)';
+    const drawCloud = (cx, cy, cr) => {
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+      this.ctx.arc(cx - cr*0.6, cy + cr*0.2, cr*0.8, 0, Math.PI * 2);
+      this.ctx.arc(cx + cr*0.6, cy + cr*0.2, cr*0.8, 0, Math.PI * 2);
+      this.ctx.closePath();
+      this.ctx.fill();
+    };
+    const driftX = (time * 12) % (this.width + 300) - 150;
+    drawCloud(driftX, 50, 32);
+    drawCloud(driftX + 220, 70, 26);
+    drawCloud(driftX - 340, 60, 35);
+    this.ctx.restore();
+
+    // Random Lightning Bolt (flashes on the screen)
+    if (flashTrigger) {
+      this.ctx.save();
+      this.ctx.shadowBlur = 32;
+      this.ctx.shadowColor = 'rgba(191, 219, 254, 0.95)';
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 4;
+      this.ctx.beginPath();
+      
+      let lx = midX + Math.sin(time) * 350;
+      this.ctx.moveTo(lx, 0);
+      
+      // Jagged branching bolt segments
+      let cx = lx;
+      const segments = 5;
+      const segH = this.groundY / segments;
+      for (let s = 1; s <= segments; s++) {
+        const nextX = cx + (Math.random() - 0.5) * 80;
+        const nextY = s * segH;
+        this.ctx.lineTo(nextX, nextY);
+        
+        // Random side branch
+        if (Math.random() > 0.6 && s < segments) {
+          this.ctx.save();
+          this.ctx.lineWidth = 2.2;
+          this.ctx.beginPath();
+          this.ctx.moveTo(nextX, nextY);
+          this.ctx.lineTo(nextX + (Math.random() - 0.5) * 110, nextY + segH * 0.85);
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
+        cx = nextX;
+      }
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
+
+    // Heavy storm rain lines - BATCHED path!
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
+    this.ctx.lineWidth = 1.2;
+    this.ctx.beginPath();
+    for (let i = 0; i < 30; i++) {
+      const rx = (i * 48 + time * 120) % this.width;
+      const ry = (i * 24 + time * 240) % this.groundY;
+      this.ctx.moveTo(rx, ry);
+      this.ctx.lineTo(rx - 15, ry + 65);
+    }
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Ground aged stone tiles
+    this.ctx.save();
+    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
+    groundGrad.addColorStop(0, '#1e293b'); // rain-slicked blue slate
+    groundGrad.addColorStop(1, '#0f172a');
+    this.ctx.fillStyle = groundGrad;
+    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
+    this.ctx.restore();
+
+    // Stone tile seams with water reflections
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.28)'; // steel gray seams
+    this.ctx.lineWidth = 1.5;
+    for (let i = -10; i < 30; i++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(midX + i * 36, this.groundY);
+      this.ctx.lineTo(midX + i * 120, this.height);
       this.ctx.stroke();
     }
     for (let y = this.groundY; y < this.height; y += 15) {
@@ -1258,363 +2265,16 @@ export class GameEngine {
       this.ctx.lineTo(this.width, y);
       this.ctx.stroke();
     }
-    this.ctx.restore();
-  }
-
-  drawNeonRooftop(midX) {
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#090b1f');
-    skyGrad.addColorStop(0.5, '#211e45');
-    skyGrad.addColorStop(1, '#0f172a');
-    this.ctx.fillStyle = skyGrad;
-    this.ctx.fillRect(0, 0, this.width, this.height);
-
-    this.ctx.save();
-    const handleBuilding = (x, w, h, color) => {
-      this.ctx.fillStyle = color;
-      this.ctx.fillRect(x, this.groundY - h, w, h);
-    };
-    handleBuilding(20, 90, 200, '#131b3a');
-    handleBuilding(120, 80, 175, '#1a2441');
-    handleBuilding(220, 100, 210, '#0e162d');
-    handleBuilding(340, 120, 220, '#191f39');
-    handleBuilding(520, 160, 230, '#0c1327');
-    handleBuilding(700, 90, 185, '#13203e');
-    handleBuilding(820, 100, 200, '#10182f');
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#0ea5e9';
-    for (let x = 30; x < 920; x += 40) {
-      const height = 14 + Math.sin(x * 0.1) * 6;
-      this.ctx.fillRect(x, this.groundY - 40 - height, 4, height);
-      this.ctx.fillRect(x + 18, this.groundY - 70 - height * 0.8, 4, height * 0.6);
-    }
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = 'rgba(59, 130, 246, 0.18)';
-    this.ctx.fillRect(0, 0, this.width, 65 + Math.sin(Date.now() * 0.002) * 8);
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
-    this.ctx.lineWidth = 5;
-    for (let x = 0; x < this.width; x += 140) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(x + 30, this.groundY - 28);
-      this.ctx.lineTo(x + 70, this.groundY - 80);
-      this.ctx.lineTo(x + 110, this.groundY - 28);
-      this.ctx.stroke();
-    }
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.lineWidth = 10;
-    this.ctx.strokeStyle = 'rgba(96, 165, 250, 0.35)';
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, this.groundY - 14);
-    this.ctx.lineTo(this.width, this.groundY - 14);
-    this.ctx.stroke();
-    this.ctx.restore();
-
-    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
-    groundGrad.addColorStop(0, '#121a35');
-    groundGrad.addColorStop(1, '#070a15');
-    this.ctx.fillStyle = groundGrad;
-    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(96, 165, 250, 0.2)';
-    this.ctx.lineWidth = 1;
-    for (let i = -10; i < 30; i++) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 25, this.groundY);
-      this.ctx.lineTo(midX + i * 90, this.height);
-      this.ctx.stroke();
-    }
-    for (let y = this.groundY; y < this.height; y += 18) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
-    }
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#2563eb';
-    this.ctx.font = '700 32px "Outfit", "Inter", sans-serif';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText('NEON ROOFTOP', midX, 90);
-    this.ctx.restore();
-  }
-
-  drawZenGarden(midX) {
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#0f172a');
-    skyGrad.addColorStop(0.5, '#064e3b');
-    skyGrad.addColorStop(1, '#0f172a');
-    this.ctx.fillStyle = skyGrad;
-    this.ctx.fillRect(0, 0, this.width, this.height);
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#064e3b';
+    
+    // Bright wet slick highlight edge
+    this.ctx.strokeStyle = '#e2e8f0';
+    this.ctx.shadowBlur = 6;
+    this.ctx.shadowColor = '#94a3b8';
+    this.ctx.lineWidth = 2.5;
     this.ctx.beginPath();
     this.ctx.moveTo(0, this.groundY);
-    this.ctx.lineTo(0, this.groundY - 90);
-    this.ctx.quadraticCurveTo(this.width * 0.25, this.groundY - 170, this.width * 0.45, this.groundY - 90);
-    this.ctx.lineTo(this.width * 0.55, this.groundY - 90);
-    this.ctx.quadraticCurveTo(this.width * 0.75, this.groundY - 160, this.width, this.groundY - 90);
     this.ctx.lineTo(this.width, this.groundY);
-    this.ctx.closePath();
-    this.ctx.fill();
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#166534';
-    this.ctx.fillRect(60, this.groundY - 160, 40, 170);
-    this.ctx.fillRect(this.width - 100, this.groundY - 170, 40, 180);
-    this.ctx.fillRect(120, this.groundY - 150, 30, 160);
-    this.ctx.fillRect(this.width - 150, this.groundY - 150, 30, 160);
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#22c55e';
-    this.ctx.beginPath();
-    this.ctx.ellipse(80, this.groundY - 160, 48, 32, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.beginPath();
-    this.ctx.ellipse(120, this.groundY - 130, 42, 28, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.beginPath();
-    this.ctx.ellipse(this.width - 80, this.groundY - 160, 48, 32, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.beginPath();
-    this.ctx.ellipse(this.width - 120, this.groundY - 130, 42, 28, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#5eead4';
-    this.ctx.shadowBlur = 12;
-    this.ctx.shadowColor = '#5eead4';
-    this.ctx.beginPath();
-    this.ctx.ellipse(midX, this.groundY - 120, 60, 45, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#1f2937';
-    this.ctx.fillRect(midX - 120, this.groundY - 50, 240, 18);
-    this.ctx.strokeStyle = '#94a3b8';
-    this.ctx.lineWidth = 3;
-    this.ctx.beginPath();
-    this.ctx.moveTo(midX - 120, this.groundY - 41);
-    this.ctx.lineTo(midX + 120, this.groundY - 41);
     this.ctx.stroke();
-    this.ctx.restore();
-
-    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
-    groundGrad.addColorStop(0, '#092e20');
-    groundGrad.addColorStop(0.15, '#0b2f24');
-    groundGrad.addColorStop(1, '#07161a');
-    this.ctx.fillStyle = groundGrad;
-    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(22, 163, 74, 0.18)';
-    this.ctx.lineWidth = 1;
-    for (let i = -10; i < 30; i++) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 28, this.groundY);
-      this.ctx.lineTo(midX + i * 100, this.height);
-      this.ctx.stroke();
-    }
-    for (let y = this.groundY; y < this.height; y += 18) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
-    }
-    this.ctx.restore();
-  }
-
-  drawMagmaCavern(midX) {
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#2b0505');
-    skyGrad.addColorStop(0.45, '#5a0f0f');
-    skyGrad.addColorStop(1, '#120505');
-    this.ctx.fillStyle = skyGrad;
-    this.ctx.fillRect(0, 0, this.width, this.height);
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#3f0a0a';
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, this.groundY);
-    this.ctx.lineTo(0, this.groundY - 80);
-    this.ctx.lineTo(80, this.groundY - 140);
-    this.ctx.lineTo(180, this.groundY - 90);
-    this.ctx.lineTo(260, this.groundY - 150);
-    this.ctx.lineTo(380, this.groundY - 90);
-    this.ctx.lineTo(460, this.groundY - 160);
-    this.ctx.lineTo(560, this.groundY - 110);
-    this.ctx.lineTo(670, this.groundY - 175);
-    this.ctx.lineTo(760, this.groundY - 95);
-    this.ctx.lineTo(860, this.groundY - 145);
-    this.ctx.lineTo(this.width, this.groundY - 90);
-    this.ctx.lineTo(this.width, this.groundY);
-    this.ctx.closePath();
-    this.ctx.fill();
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#f97316';
-    this.ctx.beginPath();
-    this.ctx.ellipse(200, this.groundY - 45, 90, 50, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.beginPath();
-    this.ctx.ellipse(640, this.groundY - 30, 100, 60, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(248, 113, 64, 0.35)';
-    this.ctx.lineWidth = 8;
-    this.ctx.beginPath();
-    this.ctx.moveTo(120, 80);
-    this.ctx.lineTo(180, 130);
-    this.ctx.lineTo(240, 60);
-    this.ctx.lineTo(320, 120);
-    this.ctx.lineTo(380, 70);
-    this.ctx.stroke();
-    this.ctx.restore();
-
-    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
-    groundGrad.addColorStop(0, '#2f0505');
-    groundGrad.addColorStop(0.15, '#3f0503');
-    groundGrad.addColorStop(1, '#090303');
-    this.ctx.fillStyle = groundGrad;
-    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#fbbf24';
-    for (let i = 0; i < 18; i++) {
-      const x = 60 + i * 50;
-      const y = this.groundY - 12 - (i % 3) * 6;
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, 6, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(248, 113, 64, 0.17)';
-    this.ctx.lineWidth = 1;
-    for (let i = -10; i < 25; i++) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 28, this.groundY);
-      this.ctx.lineTo(midX + i * 90, this.height);
-      this.ctx.stroke();
-    }
-    for (let y = this.groundY; y < this.height; y += 20) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
-    }
-    this.ctx.restore();
-  }
-
-  drawStormyTemple(midX) {
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#13182b');
-    skyGrad.addColorStop(0.4, '#0f172a');
-    skyGrad.addColorStop(1, '#111827');
-    this.ctx.fillStyle = skyGrad;
-    this.ctx.fillRect(0, 0, this.width, this.height);
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#0f172a';
-    this.ctx.fillRect(midX - 160, this.groundY - 140, 320, 140);
-    this.ctx.fillStyle = '#111827';
-    this.ctx.fillRect(midX - 160, this.groundY - 160, 320, 20);
-    this.ctx.fillStyle = '#000000';
-    this.ctx.fillRect(midX - 140, this.groundY - 110, 280, 20);
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.fillStyle = '#274058';
-    this.ctx.fillRect(140, this.groundY - 220, 50, 220);
-    this.ctx.fillRect(this.width - 190, this.groundY - 220, 50, 220);
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
-    this.ctx.lineWidth = 3;
-    for (let i = 0; i < 16; i++) {
-      const startX = 20 + i * 60;
-      this.ctx.beginPath();
-      this.ctx.moveTo(startX, 0);
-      this.ctx.lineTo(startX - 8, this.groundY);
-      this.ctx.stroke();
-    }
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(195, 211, 253, 0.45)';
-    this.ctx.lineWidth = 2;
-    for (let i = 0; i < 12; i++) {
-      const x = 40 + i * 70;
-      const y = 40 + (i % 3) * 20;
-      this.ctx.beginPath();
-      this.ctx.moveTo(x, y);
-      this.ctx.lineTo(x + 15, y + 60);
-      this.ctx.stroke();
-    }
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.strokeStyle = '#f8fafc';
-    this.ctx.lineWidth = 4;
-    this.ctx.beginPath();
-    this.ctx.moveTo(midX + 20, 40);
-    this.ctx.lineTo(midX + 12, 100);
-    this.ctx.lineTo(midX + 30, 100);
-    this.ctx.lineTo(midX + 18, 160);
-    this.ctx.stroke();
-    this.ctx.beginPath();
-    this.ctx.moveTo(midX - 20, 65);
-    this.ctx.lineTo(midX - 10, 118);
-    this.ctx.lineTo(midX - 28, 118);
-    this.ctx.lineTo(midX - 15, 180);
-    this.ctx.stroke();
-    this.ctx.restore();
-
-    this.ctx.save();
-    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
-    groundGrad.addColorStop(0, '#111827');
-    groundGrad.addColorStop(0.2, '#0a1121');
-    groundGrad.addColorStop(1, '#05080f');
-    this.ctx.fillStyle = groundGrad;
-    this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
-    this.ctx.restore();
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
-    this.ctx.lineWidth = 1;
-    for (let i = -10; i < 30; i++) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 30, this.groundY);
-      this.ctx.lineTo(midX + i * 90, this.height);
-      this.ctx.stroke();
-    }
-    for (let y = this.groundY; y < this.height; y += 16) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
-    }
     this.ctx.restore();
   }
 

@@ -526,3 +526,23 @@ kbd {
   }
 }
 
+/* PC Fullscreen Mode Layout Overrides */
+.game-wrapper.fullscreen-active {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.game-wrapper.fullscreen-active .canvas-wrapper {
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.game-wrapper.fullscreen-active .hud-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+

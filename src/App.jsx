@@ -4,13 +4,37 @@ import HUD from './components/HUD';
 import MainMenu from './game/MainMenu';
 import MobileControls from './components/MobileControls';
 import OrientationPrompt from './components/OrientationPrompt';
-import { RotateCcw, Home, Play, Pause, Smartphone, Volume2, VolumeX } from 'lucide-react';
+import { RotateCcw, Home, Play, Pause, Smartphone, Volume2, VolumeX, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function App() {
   const [inGame, setInGame] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isRestartTriggered, setIsRestartTriggered] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Track browser fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling fullscreen:', err);
+    }
+  };
   
   // Game state fed back from Canvas
   const [uiState, setUiState] = useState({
@@ -30,8 +54,13 @@ export default function App() {
     p2Wins: 0,
     gameState: 'countdown',
     winner: null,
-    fightText: ''
+    fightText: '',
+    inputLog: []
   });
+
+  const [practiceDummyMode, setPracticeDummyMode] = useState('stand');
+  const [practiceInfiniteHealth, setPracticeInfiniteHealth] = useState(true);
+  const [practiceInfiniteChi, setPracticeInfiniteChi] = useState(false);
 
   // Game config set by Menu
   const [config, setConfig] = useState({
@@ -69,6 +98,46 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [inGame]);
 
+  // Synchronize practice options with game engine
+  useEffect(() => {
+    if (inGame && window.gameEngine) {
+      window.gameEngine.practiceDummyMode = practiceDummyMode;
+      window.gameEngine.practiceInfiniteHealth = practiceInfiniteHealth;
+      window.gameEngine.practiceInfiniteChi = practiceInfiniteChi;
+    }
+  }, [inGame, practiceDummyMode, practiceInfiniteHealth, practiceInfiniteChi, isRestartTriggered]);
+
+  // Listen to game input events and store a sliding queue of the last 8 inputs in Practice Mode
+  useEffect(() => {
+    if (!inGame || config.mode !== 'practice' || isPaused) return;
+
+    const keyLabels = {
+      KeyW: 'W',
+      KeyA: 'A',
+      KeyS: 'S',
+      KeyD: 'D',
+      KeyJ: 'J',
+      KeyK: 'K',
+      KeyL: 'L',
+      KeyI: 'I',
+      KeyU: 'U'
+    };
+
+    const handleKeyDown = (e) => {
+      const label = keyLabels[e.code];
+      if (label) {
+        setUiState(prev => {
+          const nextLog = [...(prev.inputLog || []), { label, id: Date.now() + Math.random() }];
+          if (nextLog.length > 8) nextLog.shift();
+          return { ...prev, inputLog: nextLog };
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [inGame, config.mode, isPaused]);
+
   const handleStartGame = (newConfig) => {
     setConfig(newConfig);
     setInGame(true);
@@ -100,7 +169,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-container min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-2 sm:p-4 text-white overflow-hidden font-sans">
+    <div className={`app-container min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white overflow-hidden font-sans ${isFullscreen ? 'p-0 w-screen h-screen' : 'p-2 sm:p-4'}`}>
       
       {/* Full-screen orientation lock prompt for mobile portrait mode */}
       <OrientationPrompt />
@@ -114,10 +183,14 @@ export default function App() {
           })}
           savedConfig={config}
           maps={['cyberpunk_dojo', 'neon_rooftop', 'zen_garden', 'magma_cavern', 'stormy_temple']}
+          isFullscreen={isFullscreen}
+          toggleFullscreen={toggleFullscreen}
+          isSoundOn={isSoundOn}
+          toggleSound={toggleSound}
         />
       ) : (
         /* GAMEPLAY CONTAINER */
-        <div className="game-wrapper relative w-full max-w-4xl aspect-video flex items-center justify-center">
+        <div className={`game-wrapper relative flex items-center justify-center transition-all duration-300 ${isFullscreen ? 'fullscreen-active w-screen h-screen max-w-none aspect-none rounded-none border-none' : 'w-full max-w-4xl aspect-video'}`}>
           
           {/* Main Game Render Viewport */}
           <GameCanvas
@@ -170,6 +243,14 @@ export default function App() {
             >
               {isSoundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={toggleFullscreen}
+              className={`transition-colors ${isFullscreen ? 'text-cyan-400 hover:text-cyan-300' : 'text-zinc-400 hover:text-white'}`}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
           </div>
 
           {/* Virtual mobile controls */}
@@ -205,20 +286,50 @@ export default function App() {
                   </div>
                 </div>
                 
-                {/* Practice dummy mode toggle */}
+                {/* Practice dummy & status toggles */}
                 {config.mode === 'practice' && (
-                  <div className="mt-3 bg-zinc-900/60 border border-violet-800/40 rounded-lg p-3 text-left">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-violet-500 mb-2">Dummy Mode</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {['stand','block','crouch','jump'].map(dm => (
+                  <div className="mt-3 bg-zinc-900/60 border border-violet-800/40 rounded-lg p-3 text-left flex flex-col gap-3">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-violet-500 mb-2">Practice Toggles</p>
+                      <div className="flex gap-2">
                         <button
-                          key={dm}
-                          onClick={() => { if (window.gameEngine) window.gameEngine.practiceDummyMode = dm; }}
-                          className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-zinc-800 hover:bg-violet-900/60 text-zinc-300 hover:text-white transition-colors border border-zinc-700"
+                          onClick={() => {
+                            const next = !practiceInfiniteHealth;
+                            setPracticeInfiniteHealth(next);
+                            if (window.gameEngine) window.gameEngine.practiceInfiniteHealth = next;
+                          }}
+                          className={`text-[10px] font-bold uppercase px-2 py-1 rounded transition-colors border ${practiceInfiniteHealth ? 'bg-violet-900/60 text-white border-violet-500' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}
                         >
-                          {dm}
+                          Inf Health: {practiceInfiniteHealth ? 'ON' : 'OFF'}
                         </button>
-                      ))}
+                        <button
+                          onClick={() => {
+                            const next = !practiceInfiniteChi;
+                            setPracticeInfiniteChi(next);
+                            if (window.gameEngine) window.gameEngine.practiceInfiniteChi = next;
+                          }}
+                          className={`text-[10px] font-bold uppercase px-2 py-1 rounded transition-colors border ${practiceInfiniteChi ? 'bg-violet-900/60 text-white border-violet-500' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}
+                        >
+                          Inf Chi: {practiceInfiniteChi ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-violet-500 mb-2">Dummy Mode</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {['stand','block','crouch','jump'].map(dm => (
+                          <button
+                            key={dm}
+                            onClick={() => {
+                              setPracticeDummyMode(dm);
+                              if (window.gameEngine) window.gameEngine.practiceDummyMode = dm;
+                            }}
+                            className={`text-[10px] font-bold uppercase px-2 py-1 rounded transition-colors border ${practiceDummyMode === dm ? 'bg-violet-900/80 text-white border-violet-500' : 'bg-zinc-800 text-zinc-300 border-zinc-700'}`}
+                          >
+                            {dm}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -242,6 +353,13 @@ export default function App() {
                   >
                     {isSoundOn ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4" />}
                     {isSoundOn ? 'Sound: ON' : 'Sound: OFF'}
+                  </button>
+                  <button
+                    onClick={toggleFullscreen}
+                    className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-extrabold uppercase text-sm py-2.5 rounded-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    {isFullscreen ? <Minimize2 className="w-4 h-4 text-cyan-400" /> : <Maximize2 className="w-4 h-4" />}
+                    {isFullscreen ? 'Fullscreen: ON' : 'Fullscreen: OFF'}
                   </button>
                   <button
                     onClick={handleExitToMenu}

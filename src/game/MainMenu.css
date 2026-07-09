@@ -382,3 +382,77 @@
   }
 }
 
+/* --- Main Menu Top Settings Bar --- */
+.menu-top-bar {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.menu-top-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 50%;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(6px);
+}
+
+.menu-top-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #f1f5f9;
+  transform: scale(1.08);
+  box-shadow: 0 0 12px rgba(96, 165, 250, 0.15);
+}
+
+.menu-top-btn:active {
+  transform: scale(0.95);
+}
+
+.menu-top-btn.sound-on {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.menu-top-btn.fullscreen-on {
+  border-color: rgba(6, 182, 212, 0.35);
+  background: rgba(6, 182, 212, 0.06);
+}
+
+/* PC Fullscreen Menu Scaling Overrides */
+.main-menu-container.fullscreen-active {
+  padding: 48px;
+  background: radial-gradient(circle at center, #0b1120 0%, #030712 100%);
+}
+
+.main-menu-container.fullscreen-active .main-menu {
+  width: min(100%, 960px);
+  border-radius: 40px;
+  padding: 48px;
+  border-color: rgba(96, 165, 250, 0.2);
+  box-shadow: 0 35px 120px rgba(0, 0, 0, 0.7), 0 0 40px rgba(96, 165, 250, 0.08);
+  transform: scale(1.04);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.main-menu-container.fullscreen-active .game-title {
+  font-size: clamp(2.8rem, 5vw, 4rem);
+}
+
+.main-menu-container.fullscreen-active .menu-badge {
+  width: 76px;
+  height: 76px;
+  font-size: 2rem;
+}
+
+

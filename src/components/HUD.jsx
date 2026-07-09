@@ -14,7 +14,9 @@ export default function HUD({ uiState }) {
     round = 1,
     p1Wins = 0,
     p2Wins = 0,
-    fightText = ''
+    fightText = '',
+    mode = 'p1_vs_cpu',
+    inputLog = []
   } = uiState || {};
 
   // Local state to simulate damage lag (red delay bar)
@@ -207,6 +209,22 @@ export default function HUD({ uiState }) {
           <span className="combo-lbl font-extrabold text-sm text-pink-200 tracking-widest uppercase">
             KUNG FU COMBO!
           </span>
+        </div>
+      )}
+      {/* Practice Input Log on Left Side */}
+      {mode === 'practice' && inputLog && inputLog.length > 0 && (
+        <div className="absolute left-6 top-32 flex flex-col gap-1.5 bg-black/55 border border-zinc-800/80 p-2 rounded-lg w-20 backdrop-blur-sm pointer-events-none select-none z-30">
+          <p className="text-[8px] font-black uppercase tracking-widest text-zinc-500 text-center border-b border-zinc-800/80 pb-0.5 mb-1">INPUTS</p>
+          <div className="flex flex-col gap-1 items-center">
+            {inputLog.map((input) => (
+              <span
+                key={input.id}
+                className="inline-flex items-center justify-center font-mono font-bold text-[10px] bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 rounded px-2 py-0.5 min-w-[28px] text-center uppercase animate-fade-in"
+              >
+                {input.label}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>

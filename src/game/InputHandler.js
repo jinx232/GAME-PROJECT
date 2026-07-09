@@ -55,17 +55,27 @@ export class InputHandler {
       pickup: ['Numpad4', 'Digit4']
     };
 
+    this.keyListeners = [];
     this.initKeyboardListeners();
   }
 
   initKeyboardListeners() {
     window.addEventListener('keydown', (e) => {
       this.keys[e.code] = true;
+      this.keyListeners.forEach(cb => cb(e.code, true));
     });
 
     window.addEventListener('keyup', (e) => {
       this.keys[e.code] = false;
+      this.keyListeners.forEach(cb => cb(e.code, false));
     });
+  }
+
+  subscribe(callback) {
+    this.keyListeners.push(callback);
+    return () => {
+      this.keyListeners = this.keyListeners.filter(cb => cb !== callback);
+    };
   }
 
   // Set virtual mobile inputs
