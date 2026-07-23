@@ -67,7 +67,7 @@ export class Weapon {
     ctx.fill();
     
     // Outer pickup glow ring
-    ctx.shadowBlur = 20 * pulse;
+    ctx.shadowBlur = 6 * pulse;
     ctx.shadowColor = this.type === 'sword' ? '#ffffff' : '#fbbf24';
     
     ctx.translate(this.pos.x, this.pos.y - 8 + bounce);
@@ -75,7 +75,7 @@ export class Weapon {
 
     if (this.type === 'sword') {
       // Curved Katana Blade
-      ctx.shadowBlur = 15 * pulse;
+      ctx.shadowBlur = 4 * pulse;
       ctx.shadowColor = 'rgba(56, 189, 248, 0.6)';
       
       // Hilt / Tsuka (Red wrap over black)
@@ -134,7 +134,7 @@ export class Weapon {
       ctx.fill();
 
     } else if (this.type === 'staff') {
-      ctx.shadowBlur = 15 * pulse;
+      ctx.shadowBlur = 4 * pulse;
       ctx.shadowColor = '#fbbf24';
       
       // Mahogany Wood Shaft
@@ -164,7 +164,7 @@ export class Weapon {
       ctx.stroke();
 
     } else if (this.type === 'nunchucks') {
-      ctx.shadowBlur = 15 * pulse;
+      ctx.shadowBlur = 4 * pulse;
       ctx.shadowColor = '#eab308';
 
       // Octagonal Polished Black Wood Handles
@@ -203,7 +203,7 @@ export class Weapon {
       ctx.stroke();
 
     } else if (this.type === 'spear') {
-      ctx.shadowBlur = 15 * pulse;
+      ctx.shadowBlur = 4 * pulse;
       ctx.shadowColor = '#f87171'; // Qiang spear red/steel shine
 
       // Red Wood Shaft
@@ -259,7 +259,7 @@ export class Weapon {
     }
 
     ctx.fillStyle = labelColor;
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 2;
     ctx.shadowColor = labelColor;
     ctx.font = 'bold 10px Inter, sans-serif';
     ctx.textAlign = 'center';

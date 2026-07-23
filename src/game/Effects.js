@@ -187,7 +187,7 @@ export class EffectSystem {
     this.shakeDuration = duration;
   }
 
-  update(width, height) {
+  update(width) {
     // Update particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -320,7 +320,7 @@ export class EffectSystem {
     for (let i = 0; i < count; i++) {
       const vx = direction * (4 + i) * 0.8;
       const vy = (Math.random() - 0.5) * 2;
-      const pSize = 2 + Math.random() * 2;
+      const pSize = (2 + Math.random() * 2) * (size / 40);
       const life = 10 + Math.random() * 10;
       this.particles.push(new Particle(x + i * direction * 4, y, vx, vy, color, pSize, life, 0.0, 'spark'));
     }

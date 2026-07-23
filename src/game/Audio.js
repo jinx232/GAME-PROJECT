@@ -205,7 +205,7 @@ export class SoundSynth {
           node.gain.linearRampToValueAtTime(0, now + 0.3);
         }
         node.stop(now + 0.35);
-      } catch (e) { /* already stopped */ }
+      } catch { /* already stopped */ }
     });
 
     this._ambientNodes = [];

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Play, Settings, ShieldAlert, Sparkles, Volume2, HelpCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Sparkles, HelpCircle } from 'lucide-react';
 
 const AnimatedBackground = () => {
   const [animationState, setAnimationState] = useState(0);

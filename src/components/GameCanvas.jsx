@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { GameEngine } from '../game/GameEngine';
 
 export default function GameCanvas({ config, onUIUpdate, isPaused, isRestartTriggered, onRestartCompleted }) {
@@ -31,9 +31,35 @@ export default function GameCanvas({ config, onUIUpdate, isPaused, isRestartTrig
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dpr = window.devicePixelRatio || 2;
-    canvas.width = LOGICAL_WIDTH * dpr;
-    canvas.height = LOGICAL_HEIGHT * dpr;
+    const resizeCanvas = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 2;
+      let targetWidth = Math.round(rect.width * dpr);
+      let targetHeight = Math.round(rect.height * dpr);
+
+      if (targetWidth === 0 || targetHeight === 0) {
+        targetWidth = LOGICAL_WIDTH * dpr;
+        targetHeight = LOGICAL_HEIGHT * dpr;
+      }
+
+      // Cap backing store resolution to 1920px width to prevent performance lag on 4K/high-res screens
+      const maxBackingWidth = 1920;
+      if (targetWidth > maxBackingWidth) {
+        const scaleFactor = maxBackingWidth / targetWidth;
+        targetWidth = maxBackingWidth;
+        targetHeight = Math.round(targetHeight * scaleFactor);
+      }
+
+      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+      }
+    };
+
+    resizeCanvas();
+
+    window.addEventListener('resize', resizeCanvas);
+    document.addEventListener('fullscreenchange', resizeCanvas);
 
     const engine = new GameEngine(canvas, {
       mode: config.mode,
@@ -58,18 +84,31 @@ export default function GameCanvas({ config, onUIUpdate, isPaused, isRestartTrig
     // Start ambient music
     engine.sound.startAmbient();
 
-    // Game loop
-    const tick = () => {
-      if (!isPausedRef.current && engine.gameState !== 'gameover') {
-        engine.update();
-      }
-      engine.draw();
+    // Game loop with 60 FPS frame rate cap
+    let lastTime = performance.now();
+    const fpsInterval = 1000 / 60; // ~16.67ms per frame
+
+    const tick = (currentTime) => {
       requestRef.current = requestAnimationFrame(tick);
+      
+      const elapsed = currentTime - lastTime;
+      if (elapsed >= fpsInterval - 2.0) {
+        // Adjust lastTime to account for timing drift without modulo resets
+        const overflow = Math.max(0, elapsed - fpsInterval);
+        lastTime = currentTime - overflow;
+        
+        if (!isPausedRef.current && engine.gameState !== 'gameover') {
+          engine.update();
+        }
+        engine.draw();
+      }
     };
 
     requestRef.current = requestAnimationFrame(tick);
 
     return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      document.removeEventListener('fullscreenchange', resizeCanvas);
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }

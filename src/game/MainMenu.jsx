@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Volume2, VolumeX, Maximize2, Minimize2 } from 'lucide-react';
 import './MainMenu.css';
 
 const mapDescriptions = {
   cyberpunk_dojo:  { text: 'A neon dojo full of glowing lanterns and electric energy.',    hazard: 'none' },
-  neon_rooftop:    { text: 'A high-rise rooftop shimmering with lightning and skyline.',   hazard: '🛸 Cyber Drones' },
+  neon_rooftop:    { text: 'A high-rise rooftop shimmering with skyline and electric drones.', hazard: '🛸 Cyber Drones' },
   zen_garden:      { text: 'A bamboo garden with calm stones, petals, and wind gusts.',    hazard: '💨 Wind Gusts' },
   magma_cavern:    { text: 'A molten cavern filled with fire, smoke, and raw heat.',        hazard: '🔥 Lava Spouts' },
   stormy_temple:   { text: 'A storm-lashed temple pulsing with thunder and rain.',          hazard: '⚡ Lightning Strikes' },
@@ -41,14 +41,60 @@ const MODES = [
   },
 ];
 
+const CUSTOM_COLORS = [
+  { hex: '#00f0ff', name: 'Cyan' },
+  { hex: '#ec4899', name: 'Pink' },
+  { hex: '#fbbf24', name: 'Gold' },
+  { hex: '#ef4444', name: 'Red' },
+  { hex: '#22c55e', name: 'Green' },
+  { hex: '#a855f7', name: 'Purple' }
+];
+
 const MainMenu = ({ onStartGame, maps, savedConfig, isFullscreen, toggleFullscreen, isSoundOn, toggleSound }) => {
   const [gameMode, setGameMode]             = useState(savedConfig?.mode || 'p1_vs_cpu');
   const [selectedMap, setSelectedMap]       = useState(savedConfig?.map || maps[0]);
   const [weaponSpawnEnabled, setWeaponSpawn]= useState(savedConfig?.weaponSpawnEnabled !== undefined ? savedConfig.weaponSpawnEnabled : true);
   const [difficulty, setDifficulty]         = useState(savedConfig?.difficulty || 'medium');
 
+  const [p1Name, setP1Name]                 = useState(savedConfig?.p1Name || 'Dragon P1');
+  const [p2Name, setP2Name]                 = useState(savedConfig?.p2Name || 'Tiger CPU');
+  const [p1Color, setP1Color]               = useState(savedConfig?.p1Color || '#00f0ff');
+  const [p2Color, setP2Color]               = useState(savedConfig?.p2Color || '#ec4899');
+
+  // Adjust P2 default name dynamically on game mode changes (if not custom modified)
+  const handleGameModeChange = (newMode) => {
+    setGameMode(newMode);
+    setP2Name(prevP2Name => {
+      if (newMode === 'p1_vs_p2') {
+        if (prevP2Name === 'Tiger CPU' || prevP2Name === 'Dummy' || prevP2Name === 'CPU Wave') {
+          return 'Snake P2';
+        }
+      } else if (newMode === 'practice') {
+        if (prevP2Name === 'Tiger CPU' || prevP2Name === 'Snake P2' || prevP2Name === 'CPU Wave') {
+          return 'Dummy';
+        }
+      } else if (newMode === 'p1_vs_cpu') {
+        if (prevP2Name === 'Snake P2' || prevP2Name === 'Dummy' || prevP2Name === 'CPU Wave') {
+          return 'Tiger CPU';
+        }
+      } else if (newMode === 'survival') {
+        return 'CPU Wave';
+      }
+      return prevP2Name;
+    });
+  };
+
   const handleStart = () => {
-    onStartGame({ mode: gameMode, map: selectedMap, weaponSpawnEnabled, difficulty });
+    onStartGame({
+      mode: gameMode,
+      map: selectedMap,
+      weaponSpawnEnabled,
+      difficulty,
+      p1Name,
+      p2Name,
+      p1Color,
+      p2Color
+    });
   };
 
   const formatMapName = (id) =>
@@ -98,7 +144,7 @@ const MainMenu = ({ onStartGame, maps, savedConfig, isFullscreen, toggleFullscre
                     key={m.id}
                     className={`mode-card ${gameMode === m.id ? 'active' : ''}`}
                     style={{ '--mode-color': m.color }}
-                    onClick={() => setGameMode(m.id)}
+                    onClick={() => handleGameModeChange(m.id)}
                   >
                     <span className="mode-icon">{m.icon}</span>
                     <span className="mode-label">{m.label}</span>
@@ -110,36 +156,61 @@ const MainMenu = ({ onStartGame, maps, savedConfig, isFullscreen, toggleFullscre
               )}
             </div>
 
-            {/* Weapons */}
-            <div className="menu-section">
-              <h2>Weapons</h2>
-              <div className="button-group">
-                <button className={`menu-button ${weaponSpawnEnabled ? 'active' : ''}`} onClick={() => setWeaponSpawn(true)}>On</button>
-                <button className={`menu-button ${!weaponSpawnEnabled ? 'active' : ''}`} onClick={() => setWeaponSpawn(false)}>Off</button>
-              </div>
-            </div>
-
-            {/* Difficulty (hidden in practice) */}
-            {!hideDifficulty && (
-              <div className="menu-section">
-                <h2>Difficulty</h2>
+            {/* Weapons & Difficulty */}
+            <div className="flex gap-4">
+              <div className="menu-section flex-1">
+                <h2>Weapons</h2>
                 <div className="button-group">
-                  {['easy', 'medium', 'hard'].map((level) => (
-                    <button
-                      key={level}
-                      className={`menu-button ${difficulty === level ? 'active' : ''}`}
-                      onClick={() => setDifficulty(level)}
-                    >
-                      {level.charAt(0).toUpperCase() + level.slice(1)}
-                    </button>
-                  ))}
+                  <button className={`menu-button ${weaponSpawnEnabled ? 'active' : ''}`} onClick={() => setWeaponSpawn(true)}>On</button>
+                  <button className={`menu-button ${!weaponSpawnEnabled ? 'active' : ''}`} onClick={() => setWeaponSpawn(false)}>Off</button>
                 </div>
               </div>
-            )}
+
+              {!hideDifficulty && (
+                <div className="menu-section flex-1">
+                  <h2>Difficulty</h2>
+                  <div className="button-group">
+                    {['easy', 'medium', 'hard'].map((level) => (
+                      <button
+                        key={level}
+                        className={`menu-button ${difficulty === level ? 'active' : ''}`}
+                        onClick={() => setDifficulty(level)}
+                      >
+                        {level.charAt(0).toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Customize Player 1 */}
+            <div className="menu-section mt-3 pt-3 border-t border-zinc-800/60">
+              <h2>Customize P1</h2>
+              <input
+                type="text"
+                className="menu-input-field"
+                value={p1Name}
+                onChange={(e) => setP1Name(e.target.value.slice(0, 12))}
+                placeholder="Player 1 Name"
+              />
+              <div className="color-picker-row">
+                {CUSTOM_COLORS.map(c => (
+                  <button
+                    key={c.hex}
+                    className={`color-picker-dot ${p1Color === c.hex ? 'active' : ''}`}
+                    style={{ '--color-hex': c.hex }}
+                    onClick={() => setP1Color(c.hex)}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* RIGHT PANEL */}
           <div className="menu-panel menu-panel-secondary">
+            {/* Select Arena */}
             <div className="menu-section">
               <h2>Select Arena</h2>
               <div className="map-grid">
@@ -161,6 +232,30 @@ const MainMenu = ({ onStartGame, maps, savedConfig, isFullscreen, toggleFullscre
                   )}
                 </>
               )}
+            </div>
+
+            {/* Customize Player 2 */}
+            <div className="menu-section mt-3 pt-3 border-t border-zinc-800/60">
+              <h2>Customize P2</h2>
+              <input
+                type="text"
+                className="menu-input-field"
+                value={p2Name}
+                onChange={(e) => setP2Name(e.target.value.slice(0, 12))}
+                placeholder="Player 2 Name"
+                disabled={gameMode === 'survival'}
+              />
+              <div className="color-picker-row">
+                {CUSTOM_COLORS.map(c => (
+                  <button
+                    key={c.hex}
+                    className={`color-picker-dot ${p2Color === c.hex ? 'active' : ''}`}
+                    style={{ '--color-hex': c.hex }}
+                    onClick={() => setP2Color(c.hex)}
+                    title={c.name}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Practice info block */}

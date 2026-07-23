@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function HUD({ uiState }) {
   const {
@@ -10,11 +10,12 @@ export default function HUD({ uiState }) {
     p2Combo = 0,
     p1Weapon = null,
     p2Weapon = null,
+    p1Color = '#00f0ff',
+    p2Color = '#ec4899',
     timer = 99,
     round = 1,
     p1Wins = 0,
     p2Wins = 0,
-    fightText = '',
     mode = 'p1_vs_cpu',
     inputLog = []
   } = uiState || {};
@@ -57,11 +58,17 @@ export default function HUD({ uiState }) {
         <div className="player-hud p1-hud flex flex-col items-start w-5/12">
           <div className="flex flex-col gap-1 mb-1">
             <div className="flex items-center gap-2">
-              <span className="player-name text-cyan-400 font-extrabold uppercase text-lg tracking-wider drop-shadow-glow">
+              <span 
+                className="player-name font-extrabold uppercase text-lg tracking-wider"
+                style={{ color: p1Color, textShadow: `0 0 10px ${p1Color}80` }}
+              >
                 {uiState.p1Name || "Player 1"}
               </span>
               {p1Weapon && (
-                <span className="weapon-badge bg-cyan-950/80 border border-cyan-500/50 text-cyan-400 text-xs font-semibold px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                <span 
+                  className="weapon-badge bg-zinc-950/80 border text-xs font-semibold px-2 py-0.5 rounded uppercase tracking-wider animate-pulse"
+                  style={{ color: p1Color, borderColor: `${p1Color}50` }}
+                >
                   {p1Weapon}
                 </span>
               )}
@@ -74,7 +81,10 @@ export default function HUD({ uiState }) {
           </div>
           
           {/* Health Bar */}
-          <div className="bar-wrapper w-full h-6 bg-zinc-900 border border-cyan-500/30 rounded overflow-hidden relative shadow-inner">
+          <div 
+            className="bar-wrapper w-full h-6 bg-zinc-900 border rounded overflow-hidden relative shadow-inner"
+            style={{ borderColor: `${p1Color}30` }}
+          >
             {/* Red Damage Lag Bar */}
             <div 
               className="health-lag-bar absolute left-0 top-0 h-full bg-red-600 transition-all duration-75"
@@ -82,8 +92,12 @@ export default function HUD({ uiState }) {
             />
             {/* Main Health Bar */}
             <div 
-              className="health-bar absolute left-0 top-0 h-full bg-gradient-to-r from-cyan-600 to-cyan-400 shadow-glow transition-all duration-100"
-              style={{ width: `${p1Health}%` }}
+              className="health-bar absolute left-0 top-0 h-full transition-all duration-100"
+              style={{ 
+                width: `${p1Health}%`,
+                background: `linear-gradient(to right, ${p1Color}dd, ${p1Color})`,
+                boxShadow: `0 0 10px ${p1Color}80`
+              }}
             />
             {/* Health Value text */}
             <div className="absolute inset-0 flex items-center justify-start pl-3 text-[10px] font-black text-white/90 drop-shadow">
@@ -108,8 +122,24 @@ export default function HUD({ uiState }) {
 
           {/* Round Wins dots */}
           <div className="flex gap-2.5 mt-2 pl-1">
-            <div className={`w-3.5 h-3.5 rounded-full border border-cyan-500/35 transition-all ${p1Wins >= 1 ? 'bg-cyan-400 shadow-glow border-cyan-300 scale-110' : 'bg-zinc-800'}`} />
-            <div className={`w-3.5 h-3.5 rounded-full border border-cyan-500/35 transition-all ${p1Wins >= 2 ? 'bg-cyan-400 shadow-glow border-cyan-300 scale-110' : 'bg-zinc-800'}`} />
+            <div 
+              className="w-3.5 h-3.5 rounded-full border transition-all" 
+              style={{
+                backgroundColor: p1Wins >= 1 ? p1Color : 'rgba(24, 24, 27, 0.6)',
+                borderColor: p1Wins >= 1 ? p1Color : `${p1Color}35`,
+                boxShadow: p1Wins >= 1 ? `0 0 8px ${p1Color}` : 'none',
+                transform: p1Wins >= 1 ? 'scale(1.1)' : 'scale(1)'
+              }}
+            />
+            <div 
+              className="w-3.5 h-3.5 rounded-full border transition-all" 
+              style={{
+                backgroundColor: p1Wins >= 2 ? p1Color : 'rgba(24, 24, 27, 0.6)',
+                borderColor: p1Wins >= 2 ? p1Color : `${p1Color}35`,
+                boxShadow: p1Wins >= 2 ? `0 0 8px ${p1Color}` : 'none',
+                transform: p1Wins >= 2 ? 'scale(1.1)' : 'scale(1)'
+              }}
+            />
           </div>
         </div>
 
@@ -130,11 +160,17 @@ export default function HUD({ uiState }) {
           <div className="flex flex-col gap-1 mb-1 items-end">
             <div className="flex items-center gap-2">
               {p2Weapon && (
-                <span className="weapon-badge bg-pink-950/80 border border-pink-500/50 text-pink-400 text-xs font-semibold px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                <span 
+                  className="weapon-badge bg-zinc-950/80 border text-xs font-semibold px-2 py-0.5 rounded uppercase tracking-wider animate-pulse"
+                  style={{ color: p2Color, borderColor: `${p2Color}50` }}
+                >
                   {p2Weapon}
                 </span>
               )}
-              <span className="player-name text-pink-400 font-extrabold uppercase text-lg tracking-wider drop-shadow-glow-pink">
+              <span 
+                className="player-name font-extrabold uppercase text-lg tracking-wider"
+                style={{ color: p2Color, textShadow: `0 0 10px ${p2Color}80` }}
+              >
                 {uiState.p2Name || "Player 2"}
               </span>
             </div>
@@ -146,7 +182,10 @@ export default function HUD({ uiState }) {
           </div>
           
           {/* Health Bar */}
-          <div className="bar-wrapper w-full h-6 bg-zinc-900 border border-pink-500/30 rounded overflow-hidden relative shadow-inner">
+          <div 
+            className="bar-wrapper w-full h-6 bg-zinc-900 border rounded overflow-hidden relative shadow-inner"
+            style={{ borderColor: `${p2Color}30` }}
+          >
             {/* Red Damage Lag Bar (right-aligned) */}
             <div 
               className="health-lag-bar absolute right-0 top-0 h-full bg-red-600 transition-all duration-75"
@@ -154,8 +193,12 @@ export default function HUD({ uiState }) {
             />
             {/* Main Health Bar */}
             <div 
-              className="health-bar absolute right-0 top-0 h-full bg-gradient-to-l from-pink-600 to-pink-400 shadow-glow-pink transition-all duration-100"
-              style={{ width: `${p2Health}%` }}
+              className="health-bar absolute right-0 top-0 h-full transition-all duration-100"
+              style={{ 
+                width: `${p2Health}%`,
+                background: `linear-gradient(to left, ${p2Color}dd, ${p2Color})`,
+                boxShadow: `0 0 10px ${p2Color}80`
+              }}
             />
             {/* Health Value text */}
             <div className="absolute inset-0 flex items-center justify-end pr-3 text-[10px] font-black text-white/90 drop-shadow">
@@ -180,8 +223,24 @@ export default function HUD({ uiState }) {
 
           {/* Round Wins dots */}
           <div className="flex gap-2.5 mt-2 pr-1">
-            <div className={`w-3.5 h-3.5 rounded-full border border-pink-500/35 transition-all ${p2Wins >= 1 ? 'bg-pink-400 shadow-glow-pink border-pink-300 scale-110' : 'bg-zinc-800'}`} />
-            <div className={`w-3.5 h-3.5 rounded-full border border-pink-500/35 transition-all ${p2Wins >= 2 ? 'bg-pink-400 shadow-glow-pink border-pink-300 scale-110' : 'bg-zinc-800'}`} />
+            <div 
+              className="w-3.5 h-3.5 rounded-full border transition-all" 
+              style={{
+                backgroundColor: p2Wins >= 1 ? p2Color : 'rgba(24, 24, 27, 0.6)',
+                borderColor: p2Wins >= 1 ? p2Color : `${p2Color}35`,
+                boxShadow: p2Wins >= 1 ? `0 0 8px ${p2Color}` : 'none',
+                transform: p2Wins >= 1 ? 'scale(1.1)' : 'scale(1)'
+              }}
+            />
+            <div 
+              className="w-3.5 h-3.5 rounded-full border transition-all" 
+              style={{
+                backgroundColor: p2Wins >= 2 ? p2Color : 'rgba(24, 24, 27, 0.6)',
+                borderColor: p2Wins >= 2 ? p2Color : `${p2Color}35`,
+                boxShadow: p2Wins >= 2 ? `0 0 8px ${p2Color}` : 'none',
+                transform: p2Wins >= 2 ? 'scale(1.1)' : 'scale(1)'
+              }}
+            />
           </div>
         </div>
 
@@ -191,10 +250,16 @@ export default function HUD({ uiState }) {
       {/* Player 1 Combo */}
       {p1Combo > 1 && (
         <div className="p1-combo-alert absolute left-8 top-32 flex flex-col items-start scale-in animate-bounce">
-          <span className="combo-count font-black text-5xl text-cyan-400 italic tracking-tighter drop-shadow-glow">
+          <span 
+            className="combo-count font-black text-5xl italic tracking-tighter"
+            style={{ color: p1Color, textShadow: `0 0 12px ${p1Color}a0` }}
+          >
             {p1Combo} HITS
           </span>
-          <span className="combo-lbl font-extrabold text-sm text-cyan-200 tracking-widest uppercase">
+          <span 
+            className="combo-lbl font-extrabold text-sm tracking-widest uppercase"
+            style={{ color: p1Color }}
+          >
             KUNG FU COMBO!
           </span>
         </div>
@@ -203,10 +268,16 @@ export default function HUD({ uiState }) {
       {/* Player 2 Combo */}
       {p2Combo > 1 && (
         <div className="p2-combo-alert absolute right-8 top-32 flex flex-col items-end scale-in animate-bounce">
-          <span className="combo-count font-black text-5xl text-pink-400 italic tracking-tighter drop-shadow-glow-pink">
+          <span 
+            className="combo-count font-black text-5xl italic tracking-tighter"
+            style={{ color: p2Color, textShadow: `0 0 12px ${p2Color}a0` }}
+          >
             {p2Combo} HITS
           </span>
-          <span className="combo-lbl font-extrabold text-sm text-pink-200 tracking-widest uppercase">
+          <span 
+            className="combo-lbl font-extrabold text-sm tracking-widest uppercase"
+            style={{ color: p2Color }}
+          >
             KUNG FU COMBO!
           </span>
         </div>

@@ -5,7 +5,7 @@ export function triggerHaptics(pattern) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
     try {
       navigator.vibrate(pattern);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -1356,17 +1356,13 @@ export class Stickman {
         if (isAttacking) {
           const p = this.animProgress;
           let thrust = Math.sin(p * Math.PI) * 58;
-          let angle = -Math.PI / 8;
-          
           if (this.state === STATES.COMBO) {
             // Spear Combo: Lunge thrust or spinning chop
             const isPunchCombo = this.comboMove === 'punch';
             if (isPunchCombo) {
               thrust = Math.sin(p * Math.PI) * 65;
-              angle = -Math.PI / 12;
             } else {
               thrust = Math.sin(p * Math.PI) * 45;
-              angle = -Math.PI / 4 + p * Math.PI * 0.6; // chop downward
             }
           }
           
@@ -1507,6 +1503,9 @@ export class Stickman {
       }
     };
 
+    // Keep neck connected to pelvis (max 44px)
+    enforceTorsoJoint(this.joints.neck, this.joints.pelvis, 44);
+
     // Keep head connected to neck (max 16px)
     enforceTorsoJoint(this.joints.head, this.joints.neck, 16);
 
@@ -1517,9 +1516,6 @@ export class Stickman {
     // Keep hips connected to pelvis (max 9px)
     enforceTorsoJoint(this.joints.lHip, this.joints.pelvis, 9);
     enforceTorsoJoint(this.joints.rHip, this.joints.pelvis, 9);
-
-    // Keep neck connected to pelvis (max 44px)
-    enforceTorsoJoint(this.joints.neck, this.joints.pelvis, 44);
 
     const enforceLimb = (a, b, c, aLen, bLen) => {
       // 1. Constrain elbow/knee (b) relative to shoulder/hip (a)
@@ -1640,7 +1636,6 @@ export class Stickman {
     };
 
     const teamColor = baseColor;
-    const shadowColor = 'rgba(0,0,0,0.12)';
 
     const drawSegment = (points, width, color, alpha = 1) => {
       if (!points || points.length === 0) return;
@@ -1673,7 +1668,6 @@ export class Stickman {
     drawLimb(j.rShoulder, j.rElbow, j.rHand, 7, teamColor, 1);
 
     // Head: Flat solid circle (Flipaclip cartoon style)
-    ctx.save();
     ctx.fillStyle = teamColor;
     ctx.beginPath();
     ctx.arc(j.head.x, j.head.y, 10, 0, Math.PI * 2);
@@ -1685,7 +1679,6 @@ export class Stickman {
       ctx.lineWidth = 2.5;
       ctx.stroke();
     }
-    ctx.restore();
 
     // Glowing outline when charged
     if (charged) {

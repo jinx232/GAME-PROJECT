@@ -1,4 +1,3 @@
-import React from 'react';
 import { Swords, Zap } from 'lucide-react';
 import './MobileControls.css';
 

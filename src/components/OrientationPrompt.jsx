@@ -1,4 +1,3 @@
-import React from 'react';
 import './OrientationPrompt.css';
 
 export default function OrientationPrompt() {

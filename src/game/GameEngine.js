@@ -90,38 +90,7 @@ export class GameEngine {
   }
 
   getPlatformsForMap(map) {
-    const gY = this.groundY;
-    switch (map) {
-      case 'cyberpunk_dojo':
-        return [
-          { x: this.width * 0.2 - 55, y: gY - 130, width: 110, height: 14 },
-          { x: this.width * 0.8 - 55, y: gY - 130, width: 110, height: 14 },
-          { x: this.width * 0.5 - 65, y: gY - 200, width: 130, height: 14 },
-        ];
-      case 'neon_rooftop':
-        return [
-          { x: this.width * 0.15, y: gY - 110, width: 100, height: 12 },
-          { x: this.width * 0.75, y: gY - 110, width: 100, height: 12 },
-        ];
-      case 'zen_garden':
-        return [
-          { x: this.width * 0.25 - 50, y: gY - 150, width: 100, height: 14 },
-          { x: this.width * 0.75 - 50, y: gY - 150, width: 100, height: 14 },
-          { x: this.width * 0.5 - 45, y: gY - 220, width: 90, height: 12 },
-        ];
-      case 'magma_cavern':
-        return [
-          { x: this.width * 0.2, y: gY - 120, width: 90, height: 14 },
-          { x: this.width * 0.7, y: gY - 120, width: 90, height: 14 },
-        ];
-      case 'stormy_temple':
-        return [
-          { x: this.width * 0.3, y: gY - 160, width: 120, height: 14 },
-          { x: this.width * 0.55, y: gY - 110, width: 90, height: 12 },
-        ];
-      default:
-        return [];
-    }
+    return [];
   }
 
   init() {
@@ -307,6 +276,8 @@ export class GameEngine {
       p2WeaponHint: this.getWeaponHintFor(this.p2),
       p1Name: this.p1Name,
       p2Name: this.p2Name,
+      p1Color: this.p1 ? this.p1.color : this.p1Color,
+      p2Color: this.p2 ? this.p2.color : this.p2Color,
       timer: this.roundTimer,
       round: this.round,
       p1Wins: this.p1Wins,
@@ -1044,12 +1015,10 @@ export class GameEngine {
       this.ctx.restore();
     }
 
-    // Group 4: Embers (Cavern)
+    // Group 4: Embers (Cavern - optimized, no shadowBlur)
     const emberParticles = this.ambientDust.filter(d => d.isEmber);
     if (emberParticles.length > 0) {
       this.ctx.save();
-      this.ctx.shadowBlur = 5;
-      this.ctx.shadowColor = '#f97316';
       this.ctx.fillStyle = '#f97316';
       this.ctx.beginPath();
       for (const d of emberParticles) {
@@ -1132,13 +1101,13 @@ export class GameEngine {
       let drawExtra = null;
 
       switch (this.currentMap) {
-        case 'cyberpunk_dojo':
+        case 'cyberpunk_dojo': {
           // Solid mahogany wood background (no gradient)
           ctx.fillStyle = '#451a03';
           ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
           
-          // Faint pink sakura top underglow (pulsing)
-          const dojoPulse = 8 + Math.sin(Date.now() * 0.004) * 2;
+          // Faint pink sakura top underglow (pulsing - optimized)
+          const dojoPulse = 3 + Math.sin(Date.now() * 0.004) * 1;
           strokeStyle = '#f472b6';
           shadowColor = '#f472b6';
           shadowBlur = dojoPulse;
@@ -1178,13 +1147,14 @@ export class GameEngine {
             ctx.fillRect(plat.x + plat.width - 6, plat.y, 6, plat.height);
           };
           break;
+        }
 
-        case 'neon_rooftop':
+        case 'neon_rooftop': {
           // Dark steel girder background
           ctx.fillStyle = '#0f172a';
           ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
           
-          const energyPulse = 10 + Math.sin(Date.now() * 0.008) * 3;
+          const energyPulse = 3 + Math.sin(Date.now() * 0.008) * 1;
           strokeStyle = '#00f0ff';
           shadowColor = '#00f0ff';
           shadowBlur = energyPulse;
@@ -1228,13 +1198,14 @@ export class GameEngine {
             const isLightOn = Math.sin(Date.now() * 0.006) > 0;
             ctx.fillStyle = isLightOn ? '#ef4444' : '#7f1d1d';
             ctx.shadowColor = '#ef4444';
-            ctx.shadowBlur = isLightOn ? 8 : 0;
+            ctx.shadowBlur = isLightOn ? 2 : 0;
             ctx.beginPath();
             ctx.arc(plat.x + 3, plat.y + plat.height * 0.5, 2.5, 0, Math.PI * 2);
             ctx.arc(plat.x + plat.width - 3, plat.y + plat.height * 0.5, 2.5, 0, Math.PI * 2);
             ctx.fill();
           };
           break;
+        }
 
         case 'zen_garden':
           // Grey stone blocks background
@@ -1243,7 +1214,7 @@ export class GameEngine {
           
           strokeStyle = '#22c55e'; // green moss glow
           shadowColor = '#22c55e';
-          shadowBlur = 8;
+          shadowBlur = 3;
           
           // Brick seams, organic moss spots, and swaying vines
           drawExtra = () => {
@@ -1300,7 +1271,7 @@ export class GameEngine {
           
           strokeStyle = '#ea580c';
           shadowColor = '#ea580c';
-          shadowBlur = 14;
+          shadowBlur = 4;
           
           // Pulsing orange magma cracks, rock facets, and rising heat waves
           drawExtra = () => {
@@ -1341,7 +1312,7 @@ export class GameEngine {
           
           strokeStyle = '#e2e8f0'; // rain slick highlight
           shadowColor = '#94a3b8';
-          shadowBlur = 6;
+          shadowBlur = 2;
 
           // Clay shingle tiles, top rain splatters, and dripping water droplets
           drawExtra = () => {
@@ -1534,16 +1505,36 @@ export class GameEngine {
     }
     this.ctx.restore();
 
-    // Dojo center circular glowing emblem behind the scroll
+    // Dojo center circular glowing emblem behind the scroll (optimized glow)
     this.ctx.save();
-    this.ctx.globalAlpha = 0.15 + Math.sin(Date.now() * 0.003) * 0.05; // soft breathing glow
-    this.ctx.shadowBlur = 20;
-    this.ctx.shadowColor = '#f472b6';
+    const emblemAlpha = 0.15 + Math.sin(Date.now() * 0.003) * 0.05;
     this.ctx.strokeStyle = '#f472b6';
+    // Draw outer thick low-opacity glow line
+    this.ctx.globalAlpha = emblemAlpha * 0.4;
+    this.ctx.lineWidth = 8;
+    this.ctx.beginPath();
+    this.ctx.arc(midX, 160, 75, 0, Math.PI * 2);
+    this.ctx.stroke();
+    // Draw main outline
+    this.ctx.globalAlpha = emblemAlpha;
     this.ctx.lineWidth = 3;
     this.ctx.beginPath();
     this.ctx.arc(midX, 160, 75, 0, Math.PI * 2);
     this.ctx.stroke();
+    this.ctx.restore();
+
+    // Shoji Silhouette Shadows (scrolling clouds behind screen grid)
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.rect(this.width * 0.15, 60, this.width * 0.7, this.groundY - 60);
+    this.ctx.clip();
+    this.ctx.fillStyle = 'rgba(12, 10, 28, 0.3)';
+    const shadowScroll = (Date.now() * 0.015) % (this.width * 0.7 + 240) - 120;
+    this.ctx.beginPath();
+    this.ctx.arc(this.width * 0.15 + shadowScroll, 180, 50, 0, Math.PI * 2);
+    this.ctx.arc(this.width * 0.15 + shadowScroll + 60, 195, 40, 0, Math.PI * 2);
+    this.ctx.arc(this.width * 0.15 + shadowScroll - 60, 195, 35, 0, Math.PI * 2);
+    this.ctx.fill();
     this.ctx.restore();
 
     // Dojo Wall / Shoji Screens (Glowing background panel)
@@ -1604,28 +1595,31 @@ export class GameEngine {
     this.ctx.stroke();
     this.ctx.restore();
 
-    // Glowing Sakura / Cherry Blossom Branch (overlaying on the left)
+    // Glowing Sakura / Cherry Blossom Branch (overlaying on the left, swaying in the wind)
     this.ctx.save();
     this.ctx.fillStyle = '#0f172a';
     this.ctx.lineWidth = 9;
     this.ctx.lineCap = 'round';
+    
+    const branchSway = Math.sin(Date.now() * 0.002) * 5;
     this.ctx.beginPath();
     this.ctx.moveTo(0, this.groundY - 140);
-    this.ctx.quadraticCurveTo(80, this.groundY - 200, 120, this.groundY - 240);
-    this.ctx.quadraticCurveTo(150, this.groundY - 280, 200, this.groundY - 290);
+    this.ctx.quadraticCurveTo(80, this.groundY - 200 + branchSway * 0.4, 120 + branchSway, this.groundY - 240 + branchSway);
+    this.ctx.quadraticCurveTo(150 + branchSway, this.groundY - 280 + branchSway * 1.4, 200 + branchSway * 1.5, this.groundY - 290 + branchSway * 1.2);
     this.ctx.stroke();
+    
     // Smaller sub-branch
     this.ctx.lineWidth = 5;
     this.ctx.beginPath();
-    this.ctx.moveTo(110, this.groundY - 235);
-    this.ctx.quadraticCurveTo(160, this.groundY - 220, 185, this.groundY - 230);
+    this.ctx.moveTo(110 + branchSway * 0.8, this.groundY - 235 + branchSway * 0.8);
+    this.ctx.quadraticCurveTo(160 + branchSway * 1.2, this.groundY - 220 + branchSway * 1.1, 185 + branchSway * 1.3, this.groundY - 230 + branchSway * 1.2);
     this.ctx.stroke();
 
     // Glowing pink foliage clouds (Flipaclip style petals)
-    this.ctx.shadowBlur = 24;
+    this.ctx.shadowBlur = 6;
     this.ctx.shadowColor = '#f472b6';
-    this.ctx.fillStyle = 'rgba(244, 114, 182, 0.9)';
     const drawFoliage = (x, y, r) => {
+      this.ctx.fillStyle = 'rgba(244, 114, 182, 0.9)';
       this.ctx.beginPath();
       this.ctx.arc(x, y, r, 0, Math.PI * 2);
       this.ctx.arc(x - r * 0.5, y + r * 0.2, r * 0.85, 0, Math.PI * 2);
@@ -1633,9 +1627,9 @@ export class GameEngine {
       this.ctx.arc(x + r * 0.2, y + r * 0.5, r * 0.75, 0, Math.PI * 2);
       this.ctx.fill();
     };
-    drawFoliage(120, this.groundY - 245, 14);
-    drawFoliage(190, this.groundY - 285, 16);
-    drawFoliage(180, this.groundY - 230, 10);
+    drawFoliage(120 + branchSway, this.groundY - 245 + branchSway, 14);
+    drawFoliage(190 + branchSway * 1.3, this.groundY - 285 + branchSway * 1.2, 16);
+    drawFoliage(180 + branchSway * 1.2, this.groundY - 230 + branchSway * 1.1, 10);
     this.ctx.restore();
 
     // Dojo Roof Eaves at the top of the screen
@@ -1659,26 +1653,28 @@ export class GameEngine {
     this.ctx.stroke();
     this.ctx.restore();
 
-    // High-Graphics Ground Dojo Mats (Tatami grid)
+    // Ground Dojo Floor (Flat 2D cross-section mats)
     const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
     groundGrad.addColorStop(0, '#14111f');
     groundGrad.addColorStop(1, '#050308');
     this.ctx.fillStyle = groundGrad;
     this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
 
-    // Neon Tatami grid border underglow - BATCHED path!
+    // Neon Tatami grid border underglow - flat 2D parallel borders!
     this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)'; // glowing cyan tatami lines
-    this.ctx.shadowBlur = 10;
-    this.ctx.shadowColor = 'rgba(0, 240, 255, 0.6)';
+    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)'; // glowing cyan tatami lines
+    this.ctx.shadowBlur = 2;
+    this.ctx.shadowColor = 'rgba(0, 240, 255, 0.5)';
     this.ctx.lineWidth = 1.8;
     this.ctx.beginPath();
-    for (let i = -10; i < 30; i++) {
-      this.ctx.moveTo(midX + i * 40, this.groundY);
-      this.ctx.lineTo(midX + i * 140, this.height);
+    // Straight vertical parallel seams
+    const dojoSpacing = 80;
+    for (let x = dojoSpacing; x < this.width; x += dojoSpacing) {
+      this.ctx.moveTo(x, this.groundY);
+      this.ctx.lineTo(x, this.height);
     }
-    // Horizontal tatami borders
-    for (let y = this.groundY; y < this.height; y += 22) {
+    // Horizontal slats
+    for (let y = this.groundY + 18; y < this.height; y += 18) {
       this.ctx.moveTo(0, y);
       this.ctx.lineTo(this.width, y);
     }
@@ -1695,7 +1691,7 @@ export class GameEngine {
     
     // Glowing pink top edge
     this.ctx.strokeStyle = '#f472b6';
-    this.ctx.shadowBlur = 10;
+    this.ctx.shadowBlur = 2;
     this.ctx.shadowColor = '#f472b6';
     this.ctx.lineWidth = 2.5;
     this.ctx.beginPath();
@@ -1711,29 +1707,38 @@ export class GameEngine {
     }
     this.ctx.restore();
 
-    // Glowing Neon Lanterns (hanging from sky ceiling)
+    // Glowing Neon Lanterns (hanging from sky ceiling) - Animated swing!
     this.ctx.save();
-    this.ctx.shadowBlur = 16;
+    this.ctx.shadowBlur = 4;
     this.ctx.shadowColor = '#f59e0b';
     this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.9)';
     this.ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
     this.ctx.lineWidth = 2.5;
+    
+    const lanternTime = Date.now() * 0.0025;
     const drawLantern = (x, y) => {
+      const swingAngle = Math.sin(lanternTime + x * 0.02) * 0.08;
+      this.ctx.save();
+      this.ctx.translate(x, 0);
+      this.ctx.rotate(swingAngle);
+      
       // Cord line
       this.ctx.beginPath();
-      this.ctx.moveTo(x, 0);
-      this.ctx.lineTo(x, y);
+      this.ctx.moveTo(0, 0);
+      this.ctx.lineTo(0, y);
       this.ctx.stroke();
+      
       // Glowing body
       this.ctx.beginPath();
-      this.ctx.roundRect(x - 8, y, 16, 26, 6);
+      this.ctx.roundRect(-8, y, 16, 26, 6);
       this.ctx.fill();
       this.ctx.stroke();
+      
       // Black wood caps
       this.ctx.fillStyle = '#0f172a';
-      this.ctx.fillRect(x - 10, y - 2, 20, 5);
-      this.ctx.fillRect(x - 10, y + 23, 20, 5);
-      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+      this.ctx.fillRect(-10, y - 2, 20, 5);
+      this.ctx.fillRect(-10, y + 23, 20, 5);
+      this.ctx.restore();
     };
     drawLantern(this.width * 0.12, 105);
     drawLantern(this.width * 0.28, 90);
@@ -1752,24 +1757,58 @@ export class GameEngine {
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // Glowing Holographic Neon Dragon in sky
+    // Sweeping searchlights
     this.ctx.save();
-    this.ctx.globalAlpha = 0.07 + Math.sin(Date.now() * 0.003) * 0.02; // pulsing holo opacity
-    this.ctx.shadowBlur = 15;
+    this.ctx.globalCompositeOperation = 'screen';
+    const lightTime = Date.now() * 0.001;
+    
+    const drawSearchlight = (x, y, angle, length, color) => {
+      const grad = this.ctx.createLinearGradient(x, y, x + Math.sin(angle) * length * 0.8, y - Math.cos(angle) * length * 0.8);
+      grad.addColorStop(0, color);
+      grad.addColorStop(0.5, 'rgba(0, 240, 255, 0.08)');
+      grad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+      
+      this.ctx.fillStyle = grad;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x - 5, y);
+      this.ctx.lineTo(x + 5, y);
+      this.ctx.lineTo(x + Math.sin(angle - 0.08) * length, y - Math.cos(angle - 0.08) * length);
+      this.ctx.lineTo(x + Math.sin(angle + 0.08) * length, y - Math.cos(angle + 0.08) * length);
+      this.ctx.closePath();
+      this.ctx.fill();
+    };
+    
+    drawSearchlight(this.width * 0.25, this.groundY, Math.sin(lightTime * 0.6) * 0.4 - 0.2, 380, 'rgba(0, 240, 255, 0.15)');
+    drawSearchlight(this.width * 0.75, this.groundY, Math.cos(lightTime * 0.5) * 0.4 + 0.2, 400, 'rgba(236, 72, 153, 0.12)');
+    this.ctx.restore();
+
+    // Glowing Holographic Neon Dragon in sky (undulating wave animation)
+    this.ctx.save();
+    const holoTime = Date.now() * 0.003;
+    this.ctx.globalAlpha = 0.07 + Math.sin(holoTime) * 0.03; // pulsing holo opacity
+    this.ctx.shadowBlur = 3;
     this.ctx.shadowColor = '#00f0ff';
     this.ctx.strokeStyle = '#00f0ff';
     this.ctx.lineWidth = 2.5;
     
-    // Draw simplified stylized dragon wave path in sky
+    // Draw slithering dragon wave path in sky
     this.ctx.beginPath();
-    this.ctx.moveTo(this.width * 0.2, 110);
-    this.ctx.bezierCurveTo(this.width * 0.3, 60, this.width * 0.4, 160, this.width * 0.5, 110);
-    this.ctx.bezierCurveTo(this.width * 0.6, 60, this.width * 0.7, 160, this.width * 0.8, 110);
+    this.ctx.moveTo(this.width * 0.2, 110 + Math.sin(holoTime) * 12);
+    this.ctx.bezierCurveTo(
+      this.width * 0.35, 60 + Math.cos(holoTime * 0.8) * 18, 
+      this.width * 0.45, 160 + Math.sin(holoTime * 0.7) * 18, 
+      this.width * 0.6, 110 + Math.cos(holoTime) * 12
+    );
+    this.ctx.bezierCurveTo(
+      this.width * 0.7, 60 + Math.sin(holoTime * 1.1) * 15, 
+      this.width * 0.78, 140 + Math.cos(holoTime * 0.9) * 15, 
+      this.width * 0.85, 110 + Math.sin(holoTime * 1.2) * 10
+    );
     this.ctx.stroke();
     
     // Dragon head whisker circle detail
     this.ctx.beginPath();
-    this.ctx.arc(this.width * 0.8, 110, 8, 0, Math.PI * 2);
+    this.ctx.arc(this.width * 0.85, 110 + Math.sin(holoTime * 1.2) * 10, 8, 0, Math.PI * 2);
     this.ctx.stroke();
     this.ctx.restore();
 
@@ -1810,50 +1849,116 @@ export class GameEngine {
 
     // Giant neon billboard (Hot pink & Cyberpunk cyan glow)
     this.ctx.save();
-    this.ctx.shadowBlur = 20;
-    this.ctx.shadowColor = '#ec4899';
-    this.ctx.strokeStyle = '#ec4899';
+    const billboardTime = Date.now();
+    const isGlitched = (billboardTime % 4500) < 150 || (billboardTime % 7000) < 80;
+    const glitchText = isGlitched ? 'S RIK ' : 'STRIKE';
+    
+    this.ctx.shadowBlur = isGlitched ? 2 : 6;
+    this.ctx.shadowColor = isGlitched ? '#00f0ff' : '#ec4899';
+    this.ctx.strokeStyle = isGlitched ? '#00f0ff' : '#ec4899';
     this.ctx.lineWidth = 3.5;
     this.ctx.strokeRect(midX - 100, 60, 200, 70);
-    this.ctx.fillStyle = 'rgba(236, 72, 153, 0.15)';
+    this.ctx.fillStyle = isGlitched ? 'rgba(0, 240, 255, 0.1)' : 'rgba(236, 72, 153, 0.15)';
     this.ctx.fillRect(midX - 100, 60, 200, 70);
+    
     // Neon lettering inside
-    this.ctx.fillStyle = '#fdf2f8';
+    this.ctx.fillStyle = isGlitched ? '#e0f2fe' : '#fdf2f8';
     this.ctx.font = 'bold 36px "Inter", "Outfit", sans-serif';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
-    this.ctx.fillText('STRIKE', midX, 95);
+    this.ctx.fillText(glitchText, midX, 95);
     this.ctx.restore();
 
-    // High-Graphics Concrete Roof floor
+    // Vent steam animation
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(244, 244, 245, 0.08)';
+    const ventTime = Date.now() * 0.003;
+    const drawSteam = (vx, vy) => {
+      for (let i = 0; i < 4; i++) {
+        const progress = (ventTime + i * 0.25) % 1.0;
+        const size = 5 + progress * 20;
+        const sx = vx - progress * 15;
+        const sy = vy - progress * 40;
+        this.ctx.beginPath();
+        this.ctx.arc(sx, sy, size, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    };
+    // Vent 1
+    this.ctx.fillStyle = '#1e293b';
+    this.ctx.fillRect(this.width * 0.12, this.groundY - 30, 8, 30); // vent pipe
+    drawSteam(this.width * 0.12 + 4, this.groundY - 30);
+    // Vent 2
+    this.ctx.fillStyle = '#1e293b';
+    this.ctx.fillRect(this.width * 0.88, this.groundY - 45, 10, 45); // vent pipe
+    drawSteam(this.width * 0.88 + 5, this.groundY - 45);
+    this.ctx.restore();
+
+    // High-Graphics Concrete Roof floor (Flat 2D cross-section)
     const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
     groundGrad.addColorStop(0, '#0f172a');
     groundGrad.addColorStop(1, '#05070e');
     this.ctx.fillStyle = groundGrad;
     this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
 
-    // Glowing Neon Grids on the floor (cyber-look cyan grid matching platforms)
+    // Glowing Neon Grids on the floor (cyber-look flat cyan grid panel)
     this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)'; 
-    this.ctx.shadowBlur = 8;
+    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)'; 
+    this.ctx.shadowBlur = 2;
     this.ctx.shadowColor = '#00f0ff';
     this.ctx.lineWidth = 1.5;
-    for (let i = -10; i < 30; i++) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 38, this.groundY);
-      this.ctx.lineTo(midX + i * 130, this.height);
-      this.ctx.stroke();
+    
+    // Straight vertical parallel lines
+    const rooftopSpacing = 90;
+    this.ctx.beginPath();
+    for (let x = rooftopSpacing; x < this.width; x += rooftopSpacing) {
+      this.ctx.moveTo(x, this.groundY);
+      this.ctx.lineTo(x, this.height);
     }
-    for (let y = this.groundY; y < this.height; y += 18) {
-      this.ctx.beginPath();
+    // Horizontal slats
+    for (let y = this.groundY + 16; y < this.height; y += 16) {
       this.ctx.moveTo(0, y);
       this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
     }
+    this.ctx.stroke();
     
-    // Glowing cyan top edge
+    // Draw rivets at the intersections of panels
+    this.ctx.shadowBlur = 0;
+    this.ctx.fillStyle = '#38bdf8';
+    this.ctx.globalAlpha = 0.3;
+    for (let x = rooftopSpacing; x < this.width; x += rooftopSpacing) {
+      for (let y = this.groundY + 8; y < this.height; y += 16) {
+        this.ctx.beginPath();
+        this.ctx.arc(x - 4, y, 1, 0, Math.PI * 2);
+        this.ctx.arc(x + 4, y, 1, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    }
+    this.ctx.restore();
+
+    // Yellow/black warning hazard stripes along the top edge of concrete floor
+    this.ctx.save();
+    this.ctx.rect(0, this.groundY, this.width, 10);
+    this.ctx.clip();
+    this.ctx.fillStyle = '#f59e0b'; // amber/yellow
+    this.ctx.fillRect(0, this.groundY, this.width, 10);
+    this.ctx.fillStyle = '#0f172a'; // dark stripe
+    this.ctx.beginPath();
+    for (let sx = -10; sx < this.width + 30; sx += 20) {
+      this.ctx.moveTo(sx, this.groundY);
+      this.ctx.lineTo(sx + 10, this.groundY);
+      this.ctx.lineTo(sx, this.groundY + 10);
+      this.ctx.lineTo(sx - 10, this.groundY + 10);
+      this.ctx.closePath();
+      this.ctx.fill();
+    }
+    this.ctx.restore();
+    
+    // Glowing cyan top edge highlight
+    this.ctx.save();
     this.ctx.strokeStyle = '#00f0ff';
-    this.ctx.shadowBlur = 12;
+    this.ctx.shadowBlur = 3;
+    this.ctx.shadowColor = '#00f0ff';
     this.ctx.lineWidth = 2.5;
     this.ctx.beginPath();
     this.ctx.moveTo(0, this.groundY);
@@ -1871,10 +1976,14 @@ export class GameEngine {
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // Glowing Full Moon in the center-top
+    // Glowing Full Moon in the center-top (optimized concentric halos instead of expensive shadowBlur)
     this.ctx.save();
-    this.ctx.shadowBlur = 45;
-    this.ctx.shadowColor = 'rgba(226, 232, 240, 0.45)';
+    this.ctx.fillStyle = 'rgba(226, 232, 240, 0.05)';
+    this.ctx.beginPath(); this.ctx.arc(midX, 90, 80, 0, Math.PI * 2); this.ctx.fill();
+    this.ctx.fillStyle = 'rgba(226, 232, 240, 0.1)';
+    this.ctx.beginPath(); this.ctx.arc(midX, 90, 68, 0, Math.PI * 2); this.ctx.fill();
+    this.ctx.fillStyle = 'rgba(226, 232, 240, 0.2)';
+    this.ctx.beginPath(); this.ctx.arc(midX, 90, 58, 0, Math.PI * 2); this.ctx.fill();
     this.ctx.fillStyle = '#f8fafc';
     this.ctx.beginPath();
     this.ctx.arc(midX, 90, 52, 0, Math.PI * 2);
@@ -1916,21 +2025,62 @@ export class GameEngine {
     this.ctx.fill();
     this.ctx.restore();
 
-    // Pine Trees / Bamboo Silhouettes on Sides
+    // Swaying Bamboo forest silhouettes on the sides
     this.ctx.save();
-    this.ctx.fillStyle = '#09211a';
-    // Left bamboo stalks
-    this.ctx.fillRect(35, this.groundY - 260, 6, 260);
-    this.ctx.fillRect(95, this.groundY - 240, 5, 240);
-    // Right bamboo stalks
-    this.ctx.fillRect(this.width - 45, this.groundY - 270, 7, 270);
-    this.ctx.fillRect(this.width - 105, this.groundY - 230, 5, 230);
+    const bambooTime = Date.now() * 0.0012;
+    const drawBambooStalk = (x, w, h) => {
+      const sway = Math.sin(bambooTime + x * 0.02) * 8;
+      this.ctx.fillStyle = '#09211a';
+      
+      this.ctx.beginPath();
+      this.ctx.moveTo(x - w*0.5, this.groundY);
+      this.ctx.quadraticCurveTo(x + sway * 0.5, this.groundY - h * 0.5, x + sway, this.groundY - h);
+      this.ctx.lineTo(x + sway + w, this.groundY - h);
+      this.ctx.quadraticCurveTo(x + w * 0.5 + sway * 0.5, this.groundY - h * 0.5, x + w * 0.5, this.groundY);
+      this.ctx.closePath();
+      this.ctx.fill();
+      
+      // Draw bamboo leaves along the stalk
+      this.ctx.fillStyle = '#0f382a';
+      for (let ly = this.groundY - 50; ly >= this.groundY - h; ly -= 45) {
+        const leafSwayX = x + (ly - (this.groundY - h)) * (sway / h);
+        this.ctx.beginPath();
+        this.ctx.ellipse(leafSwayX - 10, ly, 15, 4, -0.4, 0, Math.PI * 2);
+        this.ctx.ellipse(leafSwayX + 15, ly - 5, 12, 3, 0.3, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    };
+    drawBambooStalk(40, 7, 260);
+    drawBambooStalk(90, 6, 240);
+    drawBambooStalk(this.width - 50, 8, 270);
+    drawBambooStalk(this.width - 100, 6, 230);
     this.ctx.restore();
 
-    // Glowing Stone Pagoda Shrine in the center background
+    // Floating glowing fireflies (yellow-green micro particles)
     this.ctx.save();
-    this.ctx.shadowBlur = 18;
-    this.ctx.shadowColor = '#5eead4'; // Mint green glow
+    const ffTime = Date.now() * 0.001;
+    this.ctx.fillStyle = '#a3e635'; // Lime green
+    for (let i = 0; i < 8; i++) {
+      const fx = (this.width * 0.3 + (i * 80) + Math.sin(ffTime + i * 2) * 35) % this.width;
+      const fy = (this.groundY - 180 + Math.cos(ffTime * 0.7 + i * 3) * 45);
+      const opacity = 0.3 + Math.sin(ffTime * 3 + i) * 0.5;
+      if (opacity > 0) {
+        this.ctx.globalAlpha = opacity;
+        this.ctx.shadowBlur = 2;
+        this.ctx.shadowColor = '#a3e635';
+        this.ctx.beginPath();
+        this.ctx.arc(fx, fy, 2, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    }
+    this.ctx.restore();
+
+    // Glowing Stone Pagoda Shrine in the center background (optimized nested glow)
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(94, 234, 212, 0.15)';
+    this.ctx.beginPath();
+    this.ctx.ellipse(midX, this.groundY - 115, 30, 36, 0, 0, Math.PI * 2);
+    this.ctx.fill();
     this.ctx.fillStyle = 'rgba(94, 234, 212, 0.85)';
     this.ctx.beginPath();
     this.ctx.ellipse(midX, this.groundY - 115, 22, 28, 0, 0, Math.PI * 2);
@@ -1948,23 +2098,42 @@ export class GameEngine {
     this.ctx.fill();
     this.ctx.restore();
 
-    // Combed Zen Sand ground (curves representing water ripples)
+    // Combed Zen Sand ground (Flat 2D cross-section)
     const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
     groundGrad.addColorStop(0, '#0a231b');
     groundGrad.addColorStop(1, '#040d0a');
     this.ctx.fillStyle = groundGrad;
     this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
 
-    // Combed zen waves - BATCHED!
+    // Combed zen waves (flat 2D parallel sand ridges)
     this.ctx.save();
     this.ctx.strokeStyle = 'rgba(34, 197, 94, 0.22)';
-    this.ctx.lineWidth = 1.8;
+    this.ctx.lineWidth = 2.0;
     this.ctx.beginPath();
-    for (let y = this.groundY + 18; y < this.height; y += 14) {
+    for (let y = this.groundY + 22; y < this.height; y += 14) {
       this.ctx.moveTo(0, y);
-      this.ctx.bezierCurveTo(this.width * 0.25, y - 8, this.width * 0.75, y + 8, this.width, y);
+      this.ctx.lineTo(this.width, y);
     }
     this.ctx.stroke();
+    this.ctx.restore();
+
+    // Mossy stepping stones embedded in the sandbed
+    this.ctx.save();
+    this.ctx.fillStyle = '#292524'; // stone grey
+    this.ctx.strokeStyle = '#1c1917';
+    this.ctx.lineWidth = 2;
+    for (let sx = 60; sx < this.width; sx += 140) {
+      this.ctx.beginPath();
+      this.ctx.ellipse(sx, this.groundY + 30 + Math.sin(sx)*5, 25, 8, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.stroke();
+      // Moss highlight on top of stepping stone
+      this.ctx.fillStyle = '#16a34a';
+      this.ctx.beginPath();
+      this.ctx.ellipse(sx, this.groundY + 28 + Math.sin(sx)*5, 18, 4, 0, Math.PI, 0, false);
+      this.ctx.fill();
+      this.ctx.fillStyle = '#292524';
+    }
     this.ctx.restore();
 
     // Zen Garden stone border
@@ -1977,7 +2146,7 @@ export class GameEngine {
     
     // Glowing green top edge
     this.ctx.strokeStyle = '#22c55e';
-    this.ctx.shadowBlur = 10;
+    this.ctx.shadowBlur = 3;
     this.ctx.shadowColor = '#22c55e';
     this.ctx.lineWidth = 2.5;
     this.ctx.beginPath();
@@ -1994,9 +2163,51 @@ export class GameEngine {
       this.ctx.fill();
     }
     this.ctx.restore();
+
+    // Cutaway Koi Pond at the very bottom (cross-section view)
+    this.ctx.save();
+    const pondY = this.height - 24;
+    const pondH = 24;
+    const pondGrad = this.ctx.createLinearGradient(0, pondY, 0, this.height);
+    pondGrad.addColorStop(0, '#062024'); // deep teal
+    pondGrad.addColorStop(1, '#021012');
+    this.ctx.fillStyle = pondGrad;
+    this.ctx.fillRect(0, pondY, this.width, pondH);
+    
+    // Draw swimming koi fish (glowing silhouettes moving back and forth)
+    const koiTime = Date.now() * 0.0008;
+    const drawKoi = (yOffset, size, color, speed, phase) => {
+      const koiX = (koiTime * speed + phase) % (this.width + 100) - 50;
+      const swimWiggle = Math.sin(koiTime * 10 + phase) * 3;
+      
+      this.ctx.fillStyle = color;
+      this.ctx.shadowBlur = 0;
+      this.ctx.shadowColor = color;
+      
+      this.ctx.beginPath();
+      this.ctx.ellipse(koiX, pondY + yOffset, size * 2.2, size, swimWiggle * 0.05, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // Tail fin
+      this.ctx.beginPath();
+      this.ctx.moveTo(koiX - size * 2, pondY + yOffset);
+      this.ctx.lineTo(koiX - size * 3, pondY + yOffset - size * 0.8 + swimWiggle);
+      this.ctx.lineTo(koiX - size * 3, pondY + yOffset + size * 0.8 + swimWiggle);
+      this.ctx.closePath();
+      this.ctx.fill();
+    };
+    
+    this.ctx.globalAlpha = 0.6;
+    drawKoi(8, 4, '#fb923c', 80, 0);       // Orange koi
+    drawKoi(14, 3.5, '#f43f5e', 65, 300);  // Pink/red koi
+    drawKoi(10, 4.5, '#facc15', 55, 600);  // Yellow/gold koi
+    this.ctx.restore();
   }
 
   drawMagmaCavern(midX) {
+    const time = Date.now() * 0.003;
+    const wave = Math.sin(time) * 4;
+
     // Deep crimson cavern sky
     const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
     skyGrad.addColorStop(0, '#1c0303');
@@ -2004,6 +2215,28 @@ export class GameEngine {
     skyGrad.addColorStop(1, '#0e0202');
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, 0, this.width, this.height);
+
+    // Pulsing Cavern Wall Crystals
+    this.ctx.save();
+    const crystalPulse = 0.5 + Math.sin(Date.now() * 0.002) * 0.3;
+    this.ctx.fillStyle = `rgba(239, 68, 68, ${crystalPulse})`; // hot glowing red
+    this.ctx.shadowBlur = 4;
+    this.ctx.shadowColor = '#ef4444';
+    
+    const drawCrystal = (cx, cy, size) => {
+      this.ctx.beginPath();
+      this.ctx.moveTo(cx, cy - size);
+      this.ctx.lineTo(cx + size * 0.5, cy - size * 0.2);
+      this.ctx.lineTo(cx + size * 0.3, cy + size * 0.6);
+      this.ctx.lineTo(cx - size * 0.3, cy + size * 0.6);
+      this.ctx.lineTo(cx - size * 0.5, cy - size * 0.2);
+      this.ctx.closePath();
+      this.ctx.fill();
+    };
+    drawCrystal(this.width * 0.04, this.groundY - 160, 16);
+    drawCrystal(this.width * 0.95, this.groundY - 210, 20);
+    drawCrystal(this.width * 0.08, this.groundY - 250, 12);
+    this.ctx.restore();
 
     // Magma Falls pouring down background cavern cracks
     const magmaTime = Date.now() * 0.005;
@@ -2067,64 +2300,109 @@ export class GameEngine {
     this.ctx.fill();
     this.ctx.restore();
 
-    // Glowing/boiling lava pool in background
-    const time = Date.now() * 0.003;
-    const wave = Math.sin(time) * 4;
-    this.ctx.save();
-    this.ctx.shadowBlur = 30;
-    this.ctx.shadowColor = '#ea580c'; // rich orange glow
+    // Dripping Stalactites (Magma drops)
+    if (!this.stalactiteDrips) {
+      this.stalactiteDrips = [
+        { x: 80, y: 110, progress: 0.1, speed: 0.007 },
+        { x: 240, y: 80, progress: 0.5, speed: 0.009 },
+        { x: this.width - 150, y: 120, progress: 0.3, speed: 0.006 },
+        { x: this.width - 290, y: 75, progress: 0.8, speed: 0.008 }
+      ];
+    }
     
-    // Outer lava pools
+    this.ctx.save();
+    this.ctx.fillStyle = '#f97316';
+    this.ctx.shadowBlur = 1;
+    this.ctx.shadowColor = '#f97316';
+    
+    for (const drip of this.stalactiteDrips) {
+      drip.progress += drip.speed;
+      if (drip.progress > 1.0) {
+        drip.progress = 0;
+      }
+      
+      const startY = drip.y;
+      const dropY = startY + drip.progress * (this.groundY - startY);
+      
+      if (dropY < this.groundY) {
+        this.ctx.beginPath();
+        if (drip.progress < 0.2) {
+          this.ctx.arc(drip.x, startY + drip.progress * 15, 3 + drip.progress * 5, 0, Math.PI * 2);
+        } else {
+          this.ctx.ellipse(drip.x, dropY, 2, 4, 0, 0, Math.PI * 2);
+        }
+        this.ctx.fill();
+      } else {
+        this.ctx.beginPath();
+        this.ctx.ellipse(drip.x, this.groundY, 6, 2, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    }
+    this.ctx.restore();
+
+    // 2D Flat Side-on Lava Pool Layer (optimized concentric glows instead of shadowBlur)
+    this.ctx.fillStyle = 'rgba(234, 88, 12, 0.18)';
+    this.ctx.beginPath();
+    this.ctx.ellipse(midX - 180, this.groundY - 15 + wave * 0.3, 132, 22 + wave * 0.5, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(midX + 220, this.groundY - 15 - wave * 0.3, 152, 26 - wave * 0.5, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+    
     this.ctx.fillStyle = 'rgba(234, 88, 12, 0.85)';
     this.ctx.beginPath();
-    this.ctx.ellipse(midX - 180, this.groundY - 30, 110, 38 + wave, 0, 0, Math.PI * 2);
-    this.ctx.ellipse(midX + 220, this.groundY - 25, 130, 45 - wave, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(midX - 180, this.groundY - 15 + wave * 0.3, 110, 15 + wave * 0.5, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(midX + 220, this.groundY - 15 - wave * 0.3, 130, 18 - wave * 0.5, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
     // Boiling bubbles - BATCHED!
     this.ctx.fillStyle = '#fdbb2d';
     this.ctx.beginPath();
     const bubble = (bx, by, br) => {
-      const radius = br + Math.sin(time + bx) * (br * 0.35);
-      this.ctx.moveTo(bx + radius, by);
-      this.ctx.arc(bx, by, radius, 0, Math.PI * 2);
+      const phase = Math.sin(time + bx * 0.05);
+      const radius = Math.max(1, br + phase * (br * 0.45));
+      const bubbleY = by - (phase + 1) * 6; // rise slightly
+      this.ctx.moveTo(bx + radius, bubbleY);
+      this.ctx.arc(bx, bubbleY, radius, 0, Math.PI * 2);
     };
-    bubble(midX - 220, this.groundY - 32, 5);
-    bubble(midX - 140, this.groundY - 26, 7);
-    bubble(midX + 160, this.groundY - 28, 8);
-    bubble(midX + 270, this.groundY - 22, 6);
+    bubble(midX - 220, this.groundY - 15, 5);
+    bubble(midX - 140, this.groundY - 12, 7);
+    bubble(midX + 160, this.groundY - 15, 8);
+    bubble(midX + 270, this.groundY - 10, 6);
     this.ctx.fill();
     this.ctx.restore();
 
-    // Ground basalt rock floor
+    // Ground basalt rock floor (flat 2D cross-section)
     const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
     groundGrad.addColorStop(0, '#1c0a0a');
     groundGrad.addColorStop(1, '#0c0202');
     this.ctx.fillStyle = groundGrad;
     this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
 
-    // Glowing orange magma fractures in the basalt ground
+    // Glowing orange magma fractures in the basalt ground - flat 2D joints!
     this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(249, 115, 22, 0.35)'; // glowing orange floor magma
-    this.ctx.shadowBlur = 12;
+    this.ctx.strokeStyle = 'rgba(249, 115, 22, 0.45)'; // glowing orange floor magma
+    this.ctx.shadowBlur = 3;
     this.ctx.shadowColor = '#f97316';
     this.ctx.lineWidth = 1.8;
-    for (let i = -10; i < 28; i++) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 38, this.groundY);
-      this.ctx.lineTo(midX + i * 120, this.height);
-      this.ctx.stroke();
+    
+    // Straight vertical basalt joint fractures
+    const basaltSpacing = 70;
+    this.ctx.beginPath();
+    for (let x = basaltSpacing; x < this.width; x += basaltSpacing) {
+      this.ctx.moveTo(x, this.groundY);
+      this.ctx.lineTo(x, this.height);
     }
-    for (let y = this.groundY; y < this.height; y += 18) {
-      this.ctx.beginPath();
+    // Horizontal joints
+    for (let y = this.groundY + 16; y < this.height; y += 16) {
       this.ctx.moveTo(0, y);
       this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
     }
+    this.ctx.stroke();
+    this.ctx.restore();
     
     // Glowing hot lava top edge
+    this.ctx.save();
     this.ctx.strokeStyle = '#ea580c';
-    this.ctx.shadowBlur = 14;
+    this.ctx.shadowBlur = 3;
     this.ctx.shadowColor = '#ea580c';
     this.ctx.lineWidth = 3;
     this.ctx.beginPath();
@@ -2155,8 +2433,16 @@ export class GameEngine {
 
     // Parallax background stormy pagoda tower
     this.ctx.save();
-    this.ctx.fillStyle = '#060812';
+    if (flashTrigger) {
+      // Lightning backlighting silhouette glow
+      this.ctx.shadowBlur = 8;
+      this.ctx.shadowColor = '#cbd5e1';
+      this.ctx.fillStyle = '#1e293b'; // brighter slate silhouette
+    } else {
+      this.ctx.fillStyle = '#060812'; // dark silhouette
+    }
     this.ctx.fillRect(midX - 60, this.groundY - 260, 120, 260); // base tier
+    
     // Pagoda tier roofs
     const drawRoof = (ry, rw, rh) => {
       this.ctx.beginPath();
@@ -2166,6 +2452,16 @@ export class GameEngine {
       this.ctx.quadraticCurveTo(midX, ry, midX - rw*0.5 - 8, ry + 12);
       this.ctx.closePath();
       this.ctx.fill();
+      
+      if (flashTrigger) {
+        // Draw bright gold roof trims lit up by lightning
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 2.0;
+        this.ctx.beginPath();
+        this.ctx.moveTo(midX - rw*0.5, ry);
+        this.ctx.quadraticCurveTo(midX, ry - rh, midX + rw*0.5, ry);
+        this.ctx.stroke();
+      }
     };
     drawRoof(this.groundY - 120, 160, 22);
     drawRoof(this.groundY - 200, 130, 18);
@@ -2192,7 +2488,7 @@ export class GameEngine {
     // Random Lightning Bolt (flashes on the screen)
     if (flashTrigger) {
       this.ctx.save();
-      this.ctx.shadowBlur = 32;
+      this.ctx.shadowBlur = 8;
       this.ctx.shadowColor = 'rgba(191, 219, 254, 0.95)';
       this.ctx.strokeStyle = '#ffffff';
       this.ctx.lineWidth = 4;
@@ -2240,7 +2536,58 @@ export class GameEngine {
     this.ctx.stroke();
     this.ctx.restore();
 
-    // Ground aged stone tiles
+    // Flapping temple banners on the left and right borders
+    this.ctx.save();
+    const bannerTime = Date.now() * 0.025;
+    const drawBanner = (bx, by, bh, isLeft) => {
+      this.ctx.fillStyle = '#7f1d1d'; // Crimson
+      this.ctx.strokeStyle = '#f59e0b'; // Gold border
+      this.ctx.lineWidth = 1.5;
+      
+      this.ctx.beginPath();
+      this.ctx.moveTo(bx, by);
+      this.ctx.lineTo(bx, by + bh);
+      
+      const step = 8;
+      const widthVal = 30;
+      for (let y = by + bh; y >= by; y -= step) {
+        const waveOffset = Math.sin(bannerTime + y * 0.08) * 8;
+        const wx = isLeft ? bx + widthVal + waveOffset : bx - widthVal + waveOffset;
+        this.ctx.lineTo(wx, y);
+      }
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.stroke();
+      
+      // Wooden poles
+      this.ctx.fillStyle = '#451a03';
+      this.ctx.fillRect(isLeft ? bx - 3 : bx, by - 15, 3, bh + 40);
+    };
+    drawBanner(35, this.groundY - 180, 100, true);
+    drawBanner(this.width - 35, this.groundY - 180, 100, false);
+    
+    // Swaying Wind chimes hanging from the bottom roof eaves of pagoda
+    const chimeSway = Math.sin(Date.now() * 0.012) * 0.2;
+    const drawChime = (cx, cy, ch) => {
+      this.ctx.save();
+      this.ctx.translate(cx, cy);
+      this.ctx.rotate(chimeSway);
+      this.ctx.strokeStyle = '#d97706'; // brass/gold
+      this.ctx.lineWidth = 2.0;
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, 0);
+      this.ctx.lineTo(0, ch);
+      this.ctx.stroke();
+      // Small chime bell
+      this.ctx.fillStyle = '#b45309';
+      this.ctx.fillRect(-3, ch, 6, 8);
+      this.ctx.restore();
+    };
+    drawChime(midX - 70, this.groundY - 110, 18);
+    drawChime(midX + 70, this.groundY - 110, 18);
+    this.ctx.restore();
+
+    // Ground aged stone tiles (Flat 2D cross-section)
     this.ctx.save();
     const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
     groundGrad.addColorStop(0, '#1e293b'); // rain-slicked blue slate
@@ -2249,26 +2596,30 @@ export class GameEngine {
     this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
     this.ctx.restore();
 
-    // Stone tile seams with water reflections
+    // Stone tile seams with water reflections - flat 2D joints!
     this.ctx.save();
     this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.28)'; // steel gray seams
     this.ctx.lineWidth = 1.5;
-    for (let i = -10; i < 30; i++) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(midX + i * 36, this.groundY);
-      this.ctx.lineTo(midX + i * 120, this.height);
-      this.ctx.stroke();
+    
+    // Straight vertical parallel seams
+    const stoneSpacing = 72;
+    this.ctx.beginPath();
+    for (let x = stoneSpacing; x < this.width; x += stoneSpacing) {
+      this.ctx.moveTo(x, this.groundY);
+      this.ctx.lineTo(x, this.height);
     }
-    for (let y = this.groundY; y < this.height; y += 15) {
-      this.ctx.beginPath();
+    // Horizontal slats
+    for (let y = this.groundY + 15; y < this.height; y += 15) {
       this.ctx.moveTo(0, y);
       this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
     }
+    this.ctx.stroke();
+    this.ctx.restore();
     
     // Bright wet slick highlight edge
+    this.ctx.save();
     this.ctx.strokeStyle = '#e2e8f0';
-    this.ctx.shadowBlur = 6;
+    this.ctx.shadowBlur = 2;
     this.ctx.shadowColor = '#94a3b8';
     this.ctx.lineWidth = 2.5;
     this.ctx.beginPath();
@@ -2292,7 +2643,7 @@ export class GameEngine {
     this.ctx.strokeRect(-10, this.height * 0.35, this.width + 20, 100);
 
     // Fight Text Shadow Blur Glow
-    this.ctx.shadowBlur = 20;
+    this.ctx.shadowBlur = 5;
     this.ctx.shadowColor = '#ec4899';
     this.ctx.fillStyle = '#ffffff';
 
