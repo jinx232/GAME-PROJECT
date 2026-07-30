@@ -1,0 +1,145 @@
+/* HowToPlayModal.css - Premium Fighting Game Esports Aesthetics */
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1000%); }
+}
+
+.modal-backdrop {
+  background: rgba(5, 7, 13, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.modal-frame {
+  background: linear-gradient(145deg, rgba(17, 20, 31, 0.96), rgba(9, 11, 18, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 24px 64px rgba(0, 0, 0, 0.9),
+    0 0 40px rgba(0, 240, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+}
+
+.modal-frame::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, #00f0ff, #ec4899, #fbbf24, #00f0ff);
+  background-size: 200% 100%;
+  animation: scanline 8s linear infinite;
+}
+
+/* 3D Keycap styling */
+.keycap-3d {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 900;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.65rem;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(180deg, #2a2d3d 0%, #171924 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f4f4f5;
+  box-shadow: 
+    0 3px 0 #0c0e14,
+    0 4px 8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.1s ease;
+  user-select: none;
+}
+
+.keycap-3d.active-key {
+  transform: translateY(2px);
+  box-shadow: 
+    0 1px 0 #0c0e14,
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 0 12px currentColor;
+}
+
+.keycap-primary {
+  background: linear-gradient(180deg, #00f0ff 0%, #00a3cc 100%);
+  color: #05070d;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 3px 0 #005c73,
+    0 4px 12px rgba(0, 240, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.keycap-amber {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+  color: #05070d;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 3px 0 #92400e,
+    0 4px 12px rgba(251, 191, 36, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.keycap-pink {
+  background: linear-gradient(180deg, #f472b6 0%, #db2777 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 3px 0 #831843,
+    0 4px 12px rgba(236, 72, 153, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Control Card Container */
+.control-card {
+  background: rgba(20, 24, 38, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.85rem;
+  padding: 0.85rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.control-card:hover {
+  background: rgba(28, 33, 52, 0.8);
+  border-color: rgba(0, 240, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Weapon Combo Flow Nodes */
+.combo-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.combo-connector {
+  display: inline-block;
+  width: 1rem;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 0.2rem;
+}

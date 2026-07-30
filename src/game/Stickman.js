@@ -373,16 +373,58 @@ export class Stickman {
       case STATES.ONE_INCH_PUNCH:
       case STATES.HAMMER_FIST:
       case STATES.IRON_PALM: {
-        const punchDuration = this.weapon === 'sword' ? 16 : (this.weapon === 'staff' ? 18 : 12);
+        let punchDuration = 12;
+        if (this.weapon === 'sword') punchDuration = 26; // Kenjutsu Form (3 strikes)
+        else if (this.weapon === 'staff') punchDuration = 28; // Bojutsu Form (3 strikes)
+        else if (this.weapon === 'nunchucks') punchDuration = 24; // Kobudo Form (4 strikes)
+        else if (this.weapon === 'spear') punchDuration = 30; // Wushu Spear Form (3 strikes)
+        else if (this.weapon === 'daggers') punchDuration = 22; // Arnis Form (4 strikes)
+        else if (this.weapon === 'hammer') punchDuration = 32; // HEMA Hammer Form (2 heavy strikes)
+
         this.animProgress = Math.min(this.stateTimer / punchDuration, 1);
-        if (this.stateTimer === 1 && this.soundSystem) {
-          if (this.weapon === 'sword' || this.weapon === 'staff') this.soundSystem.playSlash();
-          else this.soundSystem.playPunch();
+        
+        if (this.weapon) {
+          // Multi-strike IRL martial arts sequences
+          if (this.weapon === 'sword') {
+            if (this.stateTimer === 1 && this.soundSystem) this.soundSystem.playSlash();
+            if (this.stateTimer === 6) { this.checkAttackCollision(opponent, effectSystem, 1); if (this.soundSystem) this.soundSystem.playSlash(); }
+            if (this.stateTimer === 14) { this.checkAttackCollision(opponent, effectSystem, 2); if (this.soundSystem) this.soundSystem.playSlash(); }
+            if (this.stateTimer === 21) { this.checkAttackCollision(opponent, effectSystem, 3); if (this.soundSystem) this.soundSystem.playSlash(); }
+          } else if (this.weapon === 'staff') {
+            if (this.stateTimer === 1 && this.soundSystem) this.soundSystem.playSlash();
+            if (this.stateTimer === 7) { this.checkAttackCollision(opponent, effectSystem, 1); if (this.soundSystem) this.soundSystem.playHit(); }
+            if (this.stateTimer === 16) { this.checkAttackCollision(opponent, effectSystem, 2); if (this.soundSystem) this.soundSystem.playSlash(); }
+            if (this.stateTimer === 23) { this.checkAttackCollision(opponent, effectSystem, 3); if (this.soundSystem) this.soundSystem.playHit(); }
+          } else if (this.weapon === 'nunchucks') {
+            if (this.stateTimer === 1 && this.soundSystem) this.soundSystem.playSlash();
+            if (this.stateTimer === 5) { this.checkAttackCollision(opponent, effectSystem, 1); }
+            if (this.stateTimer === 10) { this.checkAttackCollision(opponent, effectSystem, 2); }
+            if (this.stateTimer === 16) { this.checkAttackCollision(opponent, effectSystem, 3); }
+            if (this.stateTimer === 21) { this.checkAttackCollision(opponent, effectSystem, 4); }
+          } else if (this.weapon === 'spear') {
+            if (this.stateTimer === 1 && this.soundSystem) this.soundSystem.playSlash();
+            if (this.stateTimer === 7) { this.checkAttackCollision(opponent, effectSystem, 1); }
+            if (this.stateTimer === 15) { this.checkAttackCollision(opponent, effectSystem, 2); }
+            if (this.stateTimer === 23) { this.checkAttackCollision(opponent, effectSystem, 3); }
+          } else if (this.weapon === 'daggers') {
+            if (this.stateTimer === 1 && this.soundSystem) this.soundSystem.playSlash();
+            if (this.stateTimer === 5) { this.checkAttackCollision(opponent, effectSystem, 1); }
+            if (this.stateTimer === 10) { this.checkAttackCollision(opponent, effectSystem, 2); }
+            if (this.stateTimer === 15) { this.checkAttackCollision(opponent, effectSystem, 3); }
+            if (this.stateTimer === 19) { this.checkAttackCollision(opponent, effectSystem, 4); }
+          } else if (this.weapon === 'hammer') {
+            if (this.stateTimer === 1 && this.soundSystem) this.soundSystem.playSlash();
+            if (this.stateTimer === 12) { this.checkAttackCollision(opponent, effectSystem, 1); }
+            if (this.stateTimer === 26) { this.checkAttackCollision(opponent, effectSystem, 2); }
+          }
+        } else {
+          if (this.stateTimer === 1 && this.soundSystem) this.soundSystem.playPunch();
+          if (this.stateTimer === Math.floor(punchDuration * 0.35)) this.checkAttackCollision(opponent, effectSystem);
         }
-        if (this.stateTimer === Math.floor(punchDuration * 0.35)) this.checkAttackCollision(opponent, effectSystem);
+
         if (this.stateTimer >= punchDuration) {
           this.setState(STATES.IDLE);
-          this.comboMove = null; // Reset combo move
+          this.comboMove = null;
         }
         break;
       }
@@ -476,7 +518,7 @@ export class Stickman {
     );
   }
 
-  checkAttackCollision(opponent, effectSystem) {
+  checkAttackCollision(opponent, effectSystem, strikeIndex = 1) {
     if (opponent.state === STATES.DEAD) return;
 
     let attackReach = 40, attackHeightOffset = -35, attackWidth = 42, attackHeight = 54;
@@ -484,17 +526,60 @@ export class Stickman {
     let hitType = 'punch';
 
     if (this.weapon === 'sword') {
-      attackReach = 62; attackHeightOffset = -35; attackWidth = 55; attackHeight = 60; baseDamage = 17; knockbackVal = 7;
       hitType = 'sword';
+      if (strikeIndex === 1) {
+        // Strike 1: Kenjutsu Tsuki (Thrust)
+        attackReach = 70; attackHeightOffset = -40; attackWidth = 45; attackHeight = 35; baseDamage = 7; knockbackVal = 3;
+      } else if (strikeIndex === 2) {
+        // Strike 2: Kenjutsu Kesagiri (Diagonal Cut)
+        attackReach = 64; attackHeightOffset = -35; attackWidth = 58; attackHeight = 55; baseDamage = 9; knockbackVal = 5;
+      } else {
+        // Strike 3: Kenjutsu Shomenuchi (Overhead Cleave)
+        attackReach = 60; attackHeightOffset = -45; attackWidth = 62; attackHeight = 65; baseDamage = 14; knockbackVal = 8;
+      }
     } else if (this.weapon === 'staff') {
-      attackReach = 72; attackHeightOffset = -30; attackWidth = 65; attackHeight = 45; baseDamage = 14; knockbackVal = 9;
       hitType = 'staff';
+      if (strikeIndex === 1) {
+        // Strike 1: Bojutsu Sao Tang (Low Leg Sweep)
+        attackReach = 68; attackHeightOffset = -15; attackWidth = 60; attackHeight = 30; baseDamage = 6; knockbackVal = 4;
+      } else if (strikeIndex === 2) {
+        // Strike 2: Bojutsu Lan Bo (Rib Thrust)
+        attackReach = 74; attackHeightOffset = -35; attackWidth = 64; attackHeight = 42; baseDamage = 8; knockbackVal = 6;
+      } else {
+        // Strike 3: Bojutsu Long Tou (Dragon Overhead Smash)
+        attackReach = 78; attackHeightOffset = -50; attackWidth = 68; attackHeight = 60; baseDamage = 13; knockbackVal = 10;
+      }
     } else if (this.weapon === 'nunchucks') {
-      attackReach = 54; attackHeightOffset = -35; attackWidth = 54; attackHeight = 44; baseDamage = 12; knockbackVal = 4;
       hitType = 'nunchucks';
+      attackReach = 56; attackHeightOffset = -35; attackWidth = 55; attackHeight = 45;
+      baseDamage = strikeIndex === 4 ? 9 : 5;
+      knockbackVal = strikeIndex === 4 ? 7 : 3;
     } else if (this.weapon === 'spear') {
-      attackReach = 84; attackHeightOffset = -35; attackWidth = 72; attackHeight = 36; baseDamage = 15; knockbackVal = 8;
       hitType = 'spear';
+      if (strikeIndex === 1) {
+        // Strike 1: Wushu Lan-Na (Parry Sweep)
+        attackReach = 65; attackHeightOffset = -30; attackWidth = 55; attackHeight = 45; baseDamage = 5; knockbackVal = 3;
+      } else if (strikeIndex === 2) {
+        // Strike 2: Wushu Zha (Triple Thrust)
+        attackReach = 88; attackHeightOffset = -36; attackWidth = 72; attackHeight = 32; baseDamage = 9; knockbackVal = 5;
+      } else {
+        // Strike 3: Wushu Hua Qiang (Flower Spear Spin)
+        attackReach = 82; attackHeightOffset = -38; attackWidth = 75; attackHeight = 55; baseDamage = 13; knockbackVal = 9;
+      }
+    } else if (this.weapon === 'daggers') {
+      hitType = 'daggers';
+      attackReach = 54; attackHeightOffset = -35; attackWidth = 52; attackHeight = 48;
+      baseDamage = strikeIndex === 4 ? 10 : 5;
+      knockbackVal = strikeIndex === 4 ? 6 : 3;
+    } else if (this.weapon === 'hammer') {
+      hitType = 'hammer';
+      if (strikeIndex === 1) {
+        // Strike 1: HEMA Mortschlag Lever Strike
+        attackReach = 58; attackHeightOffset = -42; attackWidth = 58; attackHeight = 55; baseDamage = 10; knockbackVal = 5;
+      } else {
+        // Strike 2: HEMA Terrain Cleave Smash
+        attackReach = 72; attackHeightOffset = -25; attackWidth = 72; attackHeight = 65; baseDamage = 19; knockbackVal = 12;
+      }
     } else {
       // Unarmed attack variants
       switch (this.state) {
@@ -633,6 +718,17 @@ export class Stickman {
           effectSystem.spawnBloodSpurt(hitboxX, hitboxY, this.dir, '#ef4444');
           effectSystem.triggerShake(4.5, 11);
           triggerHaptics(35);
+        } else if (hitType === 'daggers') {
+          effectSystem.spawnHitSparks(hitboxX, hitboxY, '#ec4899');
+          effectSystem.spawnHitSparks(hitboxX, hitboxY, '#00f0ff');
+          effectSystem.spawnBloodSpurt(hitboxX, hitboxY, this.dir, '#f472b6');
+          effectSystem.triggerShake(3.5, 8);
+          triggerHaptics(30);
+        } else if (hitType === 'hammer') {
+          effectSystem.spawnChiExplosion(hitboxX, hitboxY, '#00f0ff');
+          effectSystem.spawnShockwave(hitboxX, hitboxY, '#00f0ff');
+          effectSystem.triggerShake(7.5, 18);
+          triggerHaptics([60, 30, 60]);
         } else {
           effectSystem.spawnHitSparks(hitboxX, hitboxY, this.color);
           effectSystem.spawnBloodSpurt(hitboxX, hitboxY, this.dir, 'rgba(239, 68, 68, 0.4)');
@@ -759,13 +855,16 @@ export class Stickman {
   throwWeapon(weaponsList) {
     if (!this.weapon) return;
     
-    // Find the equipped weapon in game list and drop it
+    // Find the equipped weapon in game list and drop it with spinning flight physics
     const w = weaponsList.find(item => item.isEquipped && item.equippedBy === this.id);
     if (w) {
       w.isEquipped = false;
       w.equippedBy = null;
       w.pos.set(this.pos.x, this.pos.y - 40);
-      w.vel.set(this.dir * 8, -5); // throw arc
+      w.vel.set(this.dir * 12, -6); // energetic throw arc
+      w.rotSpeed = this.dir * 0.45; // rapid end-over-end spin
+      w.isThrownBy = this.id; // tag for airborne hit check
+      w.damage = 18;
     }
     
     this.weapon = null;
@@ -798,29 +897,63 @@ export class Stickman {
 
     // 1. Apply movements based on state
     if (this.state === STATES.IDLE) {
-      // Karate guard stance — bent knees, guard hands raised
       const breath = Math.sin(this.animProgress * Math.PI * 2) * 1.2;
       head.y += breath;
       neck.y += breath;
       lShoulder.y += breath * 0.7;
       rShoulder.y += breath * 0.7;
 
-      // Bent-knee stance
       pelvis.y += 6;
       neck.y += 4;
       head.y += 3;
       lHip.y += 6;
       rHip.y += 6;
-      lKnee.set(-16, 22);
-      lFoot.set(-10, 40);
-      rKnee.set(16, 22);
-      rFoot.set(10, 40);
 
-      // Karate guard: lead hand forward, rear hand near chin
-      lHand.set(-14, -46 + breath * 0.5);  // rear hand near chin
-      lElbow.set(-10, -34);
-      rHand.set(22, -38 + breath * 0.5);   // lead hand extended
-      rElbow.set(16, -28);
+      if (this.weapon === 'sword') {
+        // 3D Samurai Iaijutsu Guard Stance
+        lKnee.set(-18, 24); lFoot.set(-14, 40); rKnee.set(18, 24); rFoot.set(14, 40);
+        rHand.set(16, -30 + breath); rElbow.set(12, -20);
+        lHand.set(6, -32 + breath); lElbow.set(4, -22);
+      } else if (this.weapon === 'staff') {
+        // 3D Martial Arts Staff Guard Stance
+        lKnee.set(-16, 22); lFoot.set(-10, 40); rKnee.set(16, 22); rFoot.set(10, 40);
+        rHand.set(22, -34 + breath); rElbow.set(16, -26);
+        lHand.set(-14, -44 + breath); lElbow.set(-10, -34);
+      } else if (this.weapon === 'nunchucks') {
+        // 3D Bruce Lee Bouncing Nunchuck Stance
+        const bounce = Math.sin(this.animProgress * Math.PI * 4) * 2;
+        pelvis.y += bounce;
+        lKnee.set(-16, 22); lFoot.set(-10, 40); rKnee.set(16, 22); rFoot.set(10, 40);
+        rHand.set(24, -36 + breath); rElbow.set(18, -26);
+        lHand.set(-6, -42); lElbow.set(-4, -32);
+      } else if (this.weapon === 'spear') {
+        // 3D Low Dragon Spear Guard Stance
+        lKnee.set(-20, 26); lFoot.set(-16, 40); rKnee.set(20, 26); rFoot.set(16, 40);
+        rHand.set(-10, -28 + breath); rElbow.set(-6, -20);
+        lHand.set(24, -38 + breath); lElbow.set(18, -28);
+      } else if (this.weapon === 'daggers') {
+        // 3D Cyber Daggers Reverse Grip Stance
+        lKnee.set(-18, 26); lFoot.set(-12, 40); rKnee.set(18, 26); rFoot.set(12, 40);
+        rHand.set(14, -32 + breath); rElbow.set(10, -22);
+        lHand.set(-10, -32 + breath); lElbow.set(-6, -22);
+      } else if (this.weapon === 'hammer') {
+        // 3D War Hammer Two-Handed Heavy Stance
+        pelvis.y += 8;
+        lKnee.set(-20, 28); lFoot.set(-14, 40); rKnee.set(20, 28); rFoot.set(14, 40);
+        rHand.set(12, -26 + breath); rElbow.set(8, -18);
+        lHand.set(4, -28 + breath); lElbow.set(2, -20);
+      } else {
+        // Unarmed Karate Guard Stance
+        lKnee.set(-16, 22);
+        lFoot.set(-10, 40);
+        rKnee.set(16, 22);
+        rFoot.set(10, 40);
+
+        lHand.set(-14, -46 + breath * 0.5);
+        lElbow.set(-10, -34);
+        rHand.set(22, -38 + breath * 0.5);
+        rElbow.set(16, -28);
+      }
     } 
     else if (this.state === STATES.WALK) {
       const walkCycle = this.animProgress * Math.PI * 2;
@@ -953,50 +1086,130 @@ export class Stickman {
       rHand.set(26, -54 - wobble * 0.3);
       rElbow.set(16, -42);
     }
-    else if (this.state === STATES.PUNCH || this.state === STATES.ONE_INCH_PUNCH || this.state === STATES.HAMMER_FIST || this.state === STATES.IRON_PALM) {
+    else if (this.state === STATES.PUNCH || this.state === STATES.ONE_INCH_PUNCH || this.state === STATES.HAMMER_FIST || this.state === STATES.IRON_PALM || (this.state === STATES.COMBO && this.comboMove === 'punch')) {
       const p = this.animProgress;
-      let extend = Math.sin(p * Math.PI) * 54;
-      let snap = Math.sin(p * Math.PI * 2) * 6;
-      let leanDown = Math.sin(p * Math.PI) * 4;
       
-      if (this.state === STATES.ONE_INCH_PUNCH) {
-        extend = Math.sin(p * Math.PI) * 32;
-        leanDown = Math.sin(p * Math.PI) * 8;
-      } else if (this.state === STATES.HAMMER_FIST) {
-        extend = Math.sin(p * Math.PI) * 46;
-      } else if (this.state === STATES.IRON_PALM) {
-        extend = Math.sin(p * Math.PI) * 48;
-      }
-
-      pelvis.x += extend * 0.18 + snap * 0.45;
-      neck.x += extend * 0.28 + snap * 0.3;
-      head.x += extend * 0.32 + snap * 0.22;
-      pelvis.y += leanDown;
-
-      rShoulder.x += extend * 0.26;
-      rShoulder.y -= snap * 0.15;
-      lShoulder.x -= extend * 0.12;
-      lShoulder.y += snap * 0.1;
-
-      if (this.state === STATES.HAMMER_FIST) {
-        const swingY = -65 + Math.sin(p * Math.PI) * 35;
-        rHand.set(base.rShoulder.x + extend + 5, swingY);
-        rElbow.set(base.rShoulder.x + extend * 0.4, swingY + 10);
-      } else if (this.state === STATES.IRON_PALM) {
-        rHand.set(base.rShoulder.x + extend + 10, -32 - leanDown * 0.6);
-        rElbow.set(base.rShoulder.x + extend * 0.45, -30);
+      if (this.weapon === 'sword') {
+        // 3D Katana Samurai Slash Pose: torso lunge & diagonal slash sweep
+        const slashX = Math.sin(p * Math.PI) * 62;
+        const slashY = -56 + p * 44;
+        pelvis.x += slashX * 0.28;
+        neck.x += slashX * 0.35;
+        head.x += slashX * 0.40;
+        rHand.set(slashX + 12, slashY);
+        rElbow.set(slashX * 0.5 + 8, slashY - 12);
+        lHand.set(slashX * 0.55, slashY + 6);
+        lElbow.set(slashX * 0.3, slashY);
+        rFoot.set(28, 40); lFoot.set(-22, 40);
+        rKnee.set(24, 24); lKnee.set(-20, 24);
+      } else if (this.weapon === 'staff') {
+        // 3D Bo Staff Helicopter Spin Pose: 360° torso spin & staff twirl
+        const spinAngle = p * Math.PI * 2.5;
+        const spinX = Math.cos(spinAngle) * 44;
+        const spinY = -38 + Math.sin(spinAngle) * 22;
+        pelvis.x += Math.sin(spinAngle) * 12;
+        neck.x += Math.sin(spinAngle) * 16;
+        head.x += Math.sin(spinAngle) * 18;
+        rHand.set(spinX, spinY);
+        rElbow.set(spinX * 0.5, spinY + 8);
+        lHand.set(-spinX * 0.6, -spinY - 10);
+        lElbow.set(-spinX * 0.3, -spinY - 5);
+      } else if (this.weapon === 'nunchucks') {
+        // 3D Nunchuck Figure-8 Wrist Flurry Pose
+        const figure8X = Math.sin(p * Math.PI * 4) * 38;
+        const figure8Y = -38 + Math.cos(p * Math.PI * 2) * 24;
+        pelvis.x += Math.sin(p * Math.PI) * 14;
+        rHand.set(figure8X + 10, figure8Y);
+        rElbow.set(figure8X * 0.4 + 6, figure8Y - 8);
+        lHand.set(-12, -42); lElbow.set(-8, -32);
+      } else if (this.weapon === 'spear') {
+        // 3D Qiang Spear Deep Lunge Thrust Pose
+        const thrustX = Math.sin(p * Math.PI) * 78;
+        pelvis.x += thrustX * 0.35;
+        neck.x += thrustX * 0.42;
+        head.x += thrustX * 0.45;
+        rHand.set(thrustX - 10, -34); // Rear hand driving pole
+        rElbow.set(thrustX * 0.4 - 15, -28);
+        lHand.set(thrustX + 22, -36); // Front hand guiding spearhead
+        lElbow.set(thrustX * 0.7 + 10, -32);
+        rFoot.set(34, 40); lFoot.set(-26, 40);
+        rKnee.set(28, 24); lKnee.set(-22, 24);
+      } else if (this.weapon === 'daggers') {
+        // 3D Cyber Daggers Dual X-Slash Pose
+        const slashX = Math.sin(p * Math.PI) * 52;
+        pelvis.x += slashX * 0.22;
+        rHand.set(slashX + 16, -26 - p * 20);
+        rElbow.set(slashX * 0.5 + 10, -30);
+        lHand.set(-slashX - 16, -26 - p * 20);
+        lElbow.set(-slashX * 0.5 - 10, -30);
+      } else if (this.weapon === 'hammer') {
+        // 3D War Hammer Overhead Thunder Slam Pose
+        if (p < 0.45) {
+          const windup = (p / 0.45);
+          pelvis.x -= windup * 14;
+          neck.x -= windup * 20;
+          head.x -= windup * 24;
+          rHand.set(-16, -72 - windup * 15);
+          rElbow.set(-10, -58);
+          lHand.set(-22, -70 - windup * 15);
+          lElbow.set(-16, -56);
+        } else {
+          const smash = ((p - 0.45) / 0.55);
+          const smashY = -87 + smash * 105;
+          pelvis.x += smash * 22;
+          pelvis.y += smash * 16;
+          neck.x += smash * 26;
+          head.x += smash * 28;
+          rHand.set(36, smashY);
+          rElbow.set(24, smashY - 14);
+          lHand.set(28, smashY + 2);
+          lElbow.set(18, smashY - 12);
+        }
       } else {
-        rHand.set(base.rShoulder.x + extend + 10, -42 - leanDown * 0.6);
-        rElbow.set(base.rShoulder.x + extend * 0.45, -38);
+        // Unarmed Martial Arts Punch Pose
+        let extend = Math.sin(p * Math.PI) * 54;
+        let snap = Math.sin(p * Math.PI * 2) * 6;
+        let leanDown = Math.sin(p * Math.PI) * 4;
+        
+        if (this.state === STATES.ONE_INCH_PUNCH) {
+          extend = Math.sin(p * Math.PI) * 32;
+          leanDown = Math.sin(p * Math.PI) * 8;
+        } else if (this.state === STATES.HAMMER_FIST) {
+          extend = Math.sin(p * Math.PI) * 46;
+        } else if (this.state === STATES.IRON_PALM) {
+          extend = Math.sin(p * Math.PI) * 48;
+        }
+
+        pelvis.x += extend * 0.18 + snap * 0.45;
+        neck.x += extend * 0.28 + snap * 0.3;
+        head.x += extend * 0.32 + snap * 0.22;
+        pelvis.y += leanDown;
+
+        rShoulder.x += extend * 0.26;
+        rShoulder.y -= snap * 0.15;
+        lShoulder.x -= extend * 0.12;
+        lShoulder.y += snap * 0.1;
+
+        if (this.state === STATES.HAMMER_FIST) {
+          const swingY = -65 + Math.sin(p * Math.PI) * 35;
+          rHand.set(base.rShoulder.x + extend + 5, swingY);
+          rElbow.set(base.rShoulder.x + extend * 0.4, swingY + 10);
+        } else if (this.state === STATES.IRON_PALM) {
+          rHand.set(base.rShoulder.x + extend + 10, -32 - leanDown * 0.6);
+          rElbow.set(base.rShoulder.x + extend * 0.45, -30);
+        } else {
+          rHand.set(base.rShoulder.x + extend + 10, -42 - leanDown * 0.6);
+          rElbow.set(base.rShoulder.x + extend * 0.45, -38);
+        }
+
+        lHand.set(base.lShoulder.x - 14, -34 + snap * 0.2);
+        lElbow.set(base.lShoulder.x - 8, -32 + snap * 0.12);
+
+        lFoot.set(base.lFoot.x - 10, base.lFoot.y + 6);
+        rFoot.set(base.rFoot.x + extend * 0.16, base.rFoot.y - 4);
+        lKnee.set(base.lHip.x - 12, base.lKnee.y + 6);
+        rKnee.set(base.rHip.x + extend * 0.18, base.rKnee.y - 6);
       }
-
-      lHand.set(base.lShoulder.x - 14, -34 + snap * 0.2);
-      lElbow.set(base.lShoulder.x - 8, -32 + snap * 0.12);
-
-      lFoot.set(base.lFoot.x - 10, base.lFoot.y + 6);
-      rFoot.set(base.rFoot.x + extend * 0.16, base.rFoot.y - 4);
-      lKnee.set(base.lHip.x - 12, base.lKnee.y + 6);
-      rKnee.set(base.rHip.x + extend * 0.18, base.rKnee.y - 6);
     }
     else if (this.state === STATES.KICK || this.state === STATES.FRONT_KICK || this.state === STATES.ROUNDHOUSE_KICK || this.state === STATES.SIDE_KICK || this.state === STATES.SPINNING_HOOK_KICK || this.state === STATES.AXE_KICK) {
       const p = this.animProgress;
@@ -1618,21 +1831,28 @@ export class Stickman {
       ctx.restore();
     };
 
-    const drawJoint = (point, radius, color, alpha = 1) => {
+    const drawLimbPath = (from, middle, to, width, color, alpha = 1) => {
       ctx.save();
       ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      // Contiguous 2-segment limb stroke: guaranteed 100% attached joint!
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(middle.x, middle.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+      
+      // Joint pivot caps
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.arc(middle.x, middle.y, width * 0.4, 0, Math.PI * 2);
+      ctx.arc(to.x, to.y, width * 0.4, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    };
-
-    const drawLimb = (from, middle, to, width, color, alpha = 1) => {
-      drawBone(from, middle, width, color, alpha);
-      drawBone(middle, to, width, color, alpha);
-      drawJoint(middle, width * 0.45, color, alpha);
-      drawJoint(to, width * 0.45, color, alpha);
     };
 
     const teamColor = baseColor;
@@ -1654,20 +1874,21 @@ export class Stickman {
       ctx.restore();
     };
 
-    // Legs
-    drawLimb(j.lHip, j.lKnee, j.lFoot, 7, teamColor, 1);
-    drawLimb(j.rHip, j.rKnee, j.rFoot, 7, teamColor, 1);
+    const limbW = 7.5;
+    const spineW = 10;
 
-    // Torso and spine
-    drawBone(j.pelvis, j.neck, 10, teamColor, 1);
-    drawJoint(j.pelvis, 4, teamColor, 1);
-    drawJoint(j.neck, 4, teamColor, 1);
+    // Legs (Continuous paths - 0 detachment)
+    drawLimbPath(j.lHip, j.lKnee, j.lFoot, limbW, teamColor, 1);
+    drawLimbPath(j.rHip, j.rKnee, j.rFoot, limbW, teamColor, 1);
 
-    // Arms
-    drawLimb(j.lShoulder, j.lElbow, j.lHand, 7, teamColor, 1);
-    drawLimb(j.rShoulder, j.rElbow, j.rHand, 7, teamColor, 1);
+    // Torso and spine (Continuous path - 0 detachment)
+    drawBone(j.pelvis, j.neck, spineW, teamColor, 1);
 
-    // Head: Flat solid circle (Flipaclip cartoon style)
+    // Arms (Continuous paths - 0 detachment)
+    drawLimbPath(j.lShoulder, j.lElbow, j.lHand, limbW, teamColor, 1);
+    drawLimbPath(j.rShoulder, j.rElbow, j.rHand, limbW, teamColor, 1);
+
+    // Head: Clean solid circle
     ctx.fillStyle = teamColor;
     ctx.beginPath();
     ctx.arc(j.head.x, j.head.y, 10, 0, Math.PI * 2);
@@ -1709,119 +1930,149 @@ export class Stickman {
       const isAttacking = isPunching || isKicking || isCombo;
 
       // ─── Weapon & Unarmed Swing Trails (smears) ───
+      // ─── Multi-Layered 3D Volumetric Weapon Swing Ribbon Trails ───
       if (isAttacking) {
         ctx.save();
         ctx.translate(hand.x, hand.y);
-        ctx.globalAlpha = 0.24 * (1 - this.animProgress);
+        
+        // 3D Perspective angle foreshortening for trail sweeps
+        const pTrail = this.animProgress;
+        const trailAlpha = Math.sin(pTrail * Math.PI) * 0.75;
+        ctx.globalAlpha = trailAlpha;
         
         if (this.weapon) {
           if (this.weapon === 'sword') {
-            const bladeL = 46 * dprScale;
-            const gripL = 8 * dprScale;
-            
-            let startA = -Math.PI / 4;
-            let currentA = -Math.PI / 4 + this.animProgress * Math.PI;
-            if (isCombo) {
-              const isPunchCombo = this.comboMove === 'punch';
-              if (isPunchCombo) {
-                startA = -Math.PI / 2;
-                currentA = -Math.PI / 2 + this.animProgress * Math.PI * 1.3;
-              } else {
-                startA = Math.PI / 2;
-                currentA = Math.PI / 2 - this.animProgress * Math.PI * 1.5;
-              }
-            }
+            const bladeL = 52 * dprScale;
+            const gripL = 10 * dprScale;
+            let startA = -Math.PI * 0.55;
+            let currentA = startA + pTrail * Math.PI * 1.35;
 
-            ctx.fillStyle = 'rgba(241, 245, 249, 0.28)';
+            // Outer 3D Translucent Aura Shell
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
             ctx.beginPath();
-            ctx.arc(0, 0, bladeL, startA * scaleX, currentA * scaleX, scaleX < 0);
+            ctx.arc(0, 0, bladeL * 1.08, startA * scaleX, currentA * scaleX, scaleX < 0);
             ctx.arc(0, 0, gripL, currentA * scaleX, startA * scaleX, scaleX >= 0);
             ctx.closePath();
             ctx.fill();
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.lineWidth = 2 * dprScale;
+            // Inner Core 3D White Plasma Ribbon
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
             ctx.beginPath();
             ctx.arc(0, 0, bladeL, startA * scaleX, currentA * scaleX, scaleX < 0);
-            ctx.stroke();
-          } else if (this.weapon === 'staff') {
-            const staffL = 44 * dprScale;
-            
-            let startA = Math.PI / 6;
-            let currentA = Math.PI / 6 + this.animProgress * Math.PI * 1.5;
-            if (isCombo) {
-              const isPunchCombo = this.comboMove === 'punch';
-              if (isPunchCombo) {
-                startA = -Math.PI * 0.6;
-                currentA = -Math.PI * 0.6 + this.animProgress * Math.PI * 1.3;
-              } else {
-                startA = -Math.PI;
-                currentA = -Math.PI + this.animProgress * Math.PI * 2.0;
-              }
-            }
-
-            ctx.fillStyle = 'rgba(251, 191, 36, 0.2)';
-            ctx.beginPath();
-            ctx.arc(0, 0, staffL, startA * scaleX, currentA * scaleX, scaleX < 0);
-            ctx.arc(0, 0, 4 * dprScale, currentA * scaleX, startA * scaleX, scaleX >= 0);
+            ctx.arc(0, 0, gripL + 4 * dprScale, currentA * scaleX, startA * scaleX, scaleX >= 0);
             ctx.closePath();
             ctx.fill();
 
-            ctx.strokeStyle = 'rgba(253, 224, 71, 0.5)';
+            // Outer Blade Edge Glow Line
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#38bdf8';
             ctx.lineWidth = 2.5 * dprScale;
             ctx.beginPath();
-            ctx.arc(0, 0, staffL, startA * scaleX, currentA * scaleX, scaleX < 0);
+            ctx.arc(0, 0, bladeL, startA * scaleX, currentA * scaleX, scaleX < 0);
             ctx.stroke();
-          } else if (this.weapon === 'nunchucks') {
-            const spinL = 26 * dprScale;
-            let maxL = spinL;
-            if (isCombo) {
-              maxL = spinL * 1.25;
-            }
-            ctx.fillStyle = 'rgba(245, 158, 11, 0.18)';
+
+          } else if (this.weapon === 'staff') {
+            const staffL = 50 * dprScale;
+            const spinAngle = pTrail * Math.PI * 2.5;
+
+            // 3D Double-Ended Helicopter Whirlwind Ribbon
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.22)';
             ctx.beginPath();
-            ctx.arc(0, 0, maxL, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, staffL, staffL * 0.45, spinAngle, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
-            ctx.lineWidth = 1.5 * dprScale;
+            ctx.strokeStyle = '#fde047';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#fbbf24';
+            ctx.lineWidth = 2.2 * dprScale;
             ctx.beginPath();
-            ctx.arc(0, 0, maxL, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, staffL, staffL * 0.45, spinAngle, 0, Math.PI * 2);
             ctx.stroke();
+
+          } else if (this.weapon === 'nunchucks') {
+            const spinL = 32 * dprScale;
+            const figure8Angle = pTrail * Math.PI * 4;
+
+            // Dual 3D Figure-8 Orbit Ribbon
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(Math.sin(figure8Angle) * 12, 0, spinL, spinL * 0.5, figure8Angle, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2 * dprScale;
+            ctx.beginPath();
+            ctx.ellipse(Math.sin(figure8Angle) * 12, 0, spinL, spinL * 0.5, figure8Angle, 0, Math.PI * 2);
+            ctx.stroke();
+
           } else if (this.weapon === 'spear') {
-            if (isCombo && this.comboMove === 'kick') {
-              const startA = -Math.PI / 4;
-              const currentA = -Math.PI / 4 + this.animProgress * Math.PI * 0.6;
-              ctx.fillStyle = 'rgba(226, 232, 240, 0.22)';
-              ctx.beginPath();
-              ctx.arc(0, 0, 75 * dprScale, startA * scaleX, currentA * scaleX, scaleX < 0);
-              ctx.arc(0, 0, 10 * dprScale, currentA * scaleX, startA * scaleX, scaleX >= 0);
-              ctx.closePath();
-              ctx.fill();
+            // 3D Conical Piercing Thrust Ribbon
+            const spearLen = 78 * dprScale;
+            ctx.fillStyle = 'rgba(248, 113, 113, 0.28)';
+            ctx.beginPath();
+            ctx.moveTo(-15 * scaleX * dprScale, -12 * dprScale);
+            ctx.lineTo(spearLen * scaleX, 0);
+            ctx.lineTo(-15 * scaleX * dprScale, 12 * dprScale);
+            ctx.closePath();
+            ctx.fill();
 
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-              ctx.lineWidth = 2 * dprScale;
-              ctx.beginPath();
-              ctx.arc(0, 0, 75 * dprScale, startA * scaleX, currentA * scaleX, scaleX < 0);
-              ctx.stroke();
-            } else {
-              ctx.fillStyle = 'rgba(226, 232, 240, 0.28)';
-              ctx.beginPath();
-              ctx.moveTo(-10 * scaleX * dprScale, -8 * dprScale);
-              ctx.lineTo(65 * scaleX * dprScale, 0);
-              ctx.lineTo(-10 * scaleX * dprScale, 8 * dprScale);
-              ctx.closePath();
-              ctx.fill();
+            // Inner Piercing Core Line
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#f87171';
+            ctx.lineWidth = 2.2 * dprScale;
+            ctx.beginPath();
+            ctx.moveTo(-15 * scaleX * dprScale, 0);
+            ctx.lineTo(spearLen * scaleX, 0);
+            ctx.stroke();
 
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
-              ctx.lineWidth = 1.5 * dprScale;
-              ctx.beginPath();
-              ctx.moveTo(-10 * scaleX * dprScale, 0);
-              ctx.lineTo(65 * scaleX * dprScale, 0);
-              ctx.stroke();
-            }
+            // Red Silk Tassel Motion Streak
+            ctx.fillStyle = 'rgba(220, 38, 38, 0.6)';
+            ctx.beginPath();
+            ctx.ellipse(spearLen * 0.7 * scaleX, 0, 18 * dprScale, 6 * dprScale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+          } else if (this.weapon === 'daggers') {
+            const daggerL = 42 * dprScale;
+
+            // Dual 3D X-Slash Plasma Ribbon
+            ctx.fillStyle = 'rgba(236, 72, 153, 0.28)';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, daggerL, daggerL * 0.35, -Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.28)';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, daggerL, daggerL * 0.35, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2 * dprScale;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, daggerL, daggerL * 0.35, -Math.PI / 4, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, daggerL, daggerL * 0.35, Math.PI / 4, 0, Math.PI * 2);
+            ctx.stroke();
+
+          } else if (this.weapon === 'hammer') {
+            const hL = 64 * dprScale;
+
+            // 3D Electric Thunder Arc Ribbon
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.28)';
+            ctx.beginPath();
+            ctx.arc(0, 0, hL, -Math.PI * 0.6 * scaleX, Math.PI * 0.4 * scaleX, scaleX < 0);
+            ctx.arc(0, 0, 12 * dprScale, Math.PI * 0.4 * scaleX, -Math.PI * 0.6 * scaleX, scaleX >= 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = '#00f0ff';
+            ctx.shadowBlur = 16;
+            ctx.shadowColor = '#00f0ff';
+            ctx.lineWidth = 3.5 * dprScale;
+            ctx.beginPath();
+            ctx.arc(0, 0, hL, -Math.PI * 0.6 * scaleX, Math.PI * 0.4 * scaleX, scaleX < 0);
+            ctx.stroke();
           }
-        } else {
           // ─── Unarmed Fight Smears ───
           if (isPunching) {
             const startA = -Math.PI / 3;
@@ -1858,10 +2109,24 @@ export class Stickman {
         ctx.restore();
       }
 
-      // ─── Draw Equipped Weapons ───
+      // ─── Draw Equipped Weapons with 3D Perspective & Motion ───
       if (this.weapon) {
         ctx.save();
         ctx.translate(hand.x, hand.y);
+
+        // 3D Perspective Foreshortening & Angle calculations
+        const time3D = Date.now() * 0.003;
+        const yaw3D = isAttacking 
+          ? Math.sin(this.animProgress * Math.PI) * 0.75 
+          : Math.sin(time3D) * 0.18;
+        const pitch3D = isAttacking 
+          ? Math.cos(this.animProgress * Math.PI) * 0.45 
+          : Math.cos(time3D * 1.3) * 0.12;
+
+        const scale3D_X = Math.max(0.18, Math.abs(Math.cos(yaw3D)));
+        const scale3D_Y = Math.max(0.40, Math.abs(Math.cos(pitch3D)));
+
+        ctx.scale(scale3D_X, scale3D_Y);
 
         // Render colors and shadow glows
         ctx.shadowBlur = 10;
@@ -1869,6 +2134,8 @@ export class Stickman {
         else if (this.weapon === 'staff') ctx.shadowColor = '#fbbf24';
         else if (this.weapon === 'nunchucks') ctx.shadowColor = '#fbbf24';
         else if (this.weapon === 'spear') ctx.shadowColor = '#ef4444';
+        else if (this.weapon === 'daggers') ctx.shadowColor = '#ec4899';
+        else if (this.weapon === 'hammer') ctx.shadowColor = '#00f0ff';
 
         if (this.weapon === 'sword') {
           let angle = -Math.PI / 4;
@@ -2102,6 +2369,72 @@ export class Stickman {
           ctx.quadraticCurveTo(startX + 4 * scaleX * dprScale, 6 * dprScale, startX, 3 * dprScale);
           ctx.closePath();
           ctx.fill();
+          ctx.stroke();
+        } else if (this.weapon === 'daggers') {
+          let angle = -Math.PI / 6;
+          if (isPunching || isKicking) {
+            angle = -Math.PI / 6 + this.animProgress * Math.PI * 1.8;
+          } else if (isCombo) {
+            angle = Math.PI / 4 - this.animProgress * Math.PI * 2.2;
+          }
+          ctx.rotate(angle * scaleX);
+
+          // Left Dagger
+          ctx.save();
+          ctx.translate(-5 * dprScale, 0);
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 3.5 * dprScale;
+          ctx.beginPath(); ctx.moveTo(0, 8 * dprScale); ctx.lineTo(0, 0); ctx.stroke();
+          ctx.strokeStyle = '#ec4899';
+          ctx.lineWidth = 2.4 * dprScale;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(1.2 * scaleX * dprScale, -16 * dprScale); ctx.stroke();
+          ctx.fillStyle = '#f472b6';
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(1.2 * scaleX * dprScale, -16 * dprScale); ctx.lineTo(-2 * scaleX * dprScale, -12 * dprScale); ctx.closePath(); ctx.fill();
+          ctx.restore();
+
+          // Right Dagger
+          ctx.save();
+          ctx.translate(5 * dprScale, 0);
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 3.5 * dprScale;
+          ctx.beginPath(); ctx.moveTo(0, 8 * dprScale); ctx.lineTo(0, 0); ctx.stroke();
+          ctx.strokeStyle = '#ec4899';
+          ctx.lineWidth = 2.4 * dprScale;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-1.2 * scaleX * dprScale, -16 * dprScale); ctx.stroke();
+          ctx.fillStyle = '#f472b6';
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-1.2 * scaleX * dprScale, -16 * dprScale); ctx.lineTo(2 * scaleX * dprScale, -12 * dprScale); ctx.closePath(); ctx.fill();
+          ctx.restore();
+
+        } else if (this.weapon === 'hammer') {
+          let angle = -Math.PI / 3;
+          if (isPunching || isKicking || isCombo) {
+            angle = -Math.PI / 3 + this.animProgress * Math.PI * 1.4;
+          }
+          ctx.rotate(angle * scaleX);
+
+          // Handle
+          ctx.strokeStyle = '#292524';
+          ctx.lineWidth = 4.6 * dprScale;
+          ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(0, 20 * dprScale); ctx.lineTo(0, -14 * dprScale); ctx.stroke();
+
+          // Forged Iron Head
+          ctx.fillStyle = '#0f172a';
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.6 * dprScale;
+          ctx.beginPath();
+          ctx.roundRect(-12 * dprScale, -30 * dprScale, 24 * dprScale, 16 * dprScale, 3 * dprScale);
+          ctx.fill();
+          ctx.stroke();
+
+          // Electric Thunder Runes
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 1.2 * dprScale;
+          ctx.beginPath();
+          ctx.moveTo(-6 * dprScale, -26 * dprScale);
+          ctx.lineTo(-2 * dprScale, -22 * dprScale);
+          ctx.lineTo(2 * dprScale, -26 * dprScale);
+          ctx.lineTo(6 * dprScale, -22 * dprScale);
           ctx.stroke();
         }
         ctx.restore();

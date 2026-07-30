@@ -150,7 +150,7 @@ export class GameEngine {
     this.platforms = this.getPlatformsForMap(this.currentMap);
 
     if (this.weaponSpawnEnabled) {
-      const types = ['sword', 'staff', 'nunchucks', 'spear'];
+      const types = ['sword', 'staff', 'nunchucks', 'spear', 'daggers', 'hammer'];
       this.weapons.push(new Weapon(this.width * 0.35, 100, types[Math.floor(Math.random() * types.length)]));
       this.weapons.push(new Weapon(this.width * 0.65, 100, types[Math.floor(Math.random() * types.length)]));
     }
@@ -436,8 +436,9 @@ export class GameEngine {
     // 6. Update effects
     this.effects.update(this.width, this.height);
 
-    // 7. Check projectile collisions
+    // 7. Check projectile & thrown weapon collisions
     this.checkProjectileCollisions();
+    this.checkThrownWeaponCollisions();
 
     // 8. Auto weapon spawning
     if (this.weaponSpawnEnabled && this.gameState === 'fight') {
@@ -491,13 +492,42 @@ export class GameEngine {
   }
 
   spawnRandomWeapon() {
-    const types = ['sword', 'staff', 'nunchucks', 'spear'];
+    const types = ['sword', 'staff', 'nunchucks', 'spear', 'daggers', 'hammer'];
     const weaponType = types[Math.floor(Math.random() * types.length)];
     const rx = 100 + Math.random() * (this.width - 200);
     this.weapons.push(new Weapon(rx, -30, weaponType));
     
     // Spawn dust/leaves indicator where it will fall
     this.effects.spawnDustCloud(rx, this.groundY, 'rgba(251, 191, 36, 0.4)');
+  }
+
+  checkThrownWeaponCollisions() {
+    for (let w of this.weapons) {
+      if (w.isThrownBy && !w.isEquipped && !w.isGrounded && Math.abs(w.vel.x) > 2) {
+        const target = w.isThrownBy === 1 ? this.p2 : this.p1;
+        if (target && target.state !== STATES.DEAD) {
+          const targetCenterY = target.pos.y - 45;
+          const dist = Math.hypot(w.pos.x - target.pos.x, w.pos.y - targetCenterY);
+          if (dist < 42) {
+            // Hit by thrown weapon!
+            const hitDir = w.vel.x > 0 ? 1 : -1;
+            target.health = Math.max(target.health - (w.damage || 18), 0);
+            target.setState(STATES.HIT, true);
+            target.vel.x = hitDir * 7;
+            target.vel.y = -3;
+            
+            this.effects.spawnHitSparks(w.pos.x, w.pos.y, '#fbbf24');
+            this.effects.spawnBloodSpurt(w.pos.x, w.pos.y, hitDir, '#ef4444');
+            this.effects.triggerShake(4.5, 12);
+            this.sound.playHit();
+
+            // Reset thrown status so it only hits once
+            w.isThrownBy = null;
+            w.vel.x = -w.vel.x * 0.3; // bounce back on hit
+          }
+        }
+      }
+    }
   }
 
   checkProjectileCollisions() {
@@ -1478,13 +1508,8 @@ export class GameEngine {
   }
 
   drawCyberpunkDojo(midX) {
-    // High-graphics Cyberpunk Sky Gradient
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#04020b');
-    skyGrad.addColorStop(0.35, '#0c0a21');
-    skyGrad.addColorStop(0.7, '#1b143a');
-    skyGrad.addColorStop(1, '#0c071d');
-    this.ctx.fillStyle = skyGrad;
+    // Solid Cyberpunk Sky (No Gradients)
+    this.ctx.fillStyle = '#0a0a1a';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     // Parallax background skyscrapers (Cyberpunk cityscape)
@@ -1653,11 +1678,8 @@ export class GameEngine {
     this.ctx.stroke();
     this.ctx.restore();
 
-    // Ground Dojo Floor (Flat 2D cross-section mats)
-    const groundGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.height);
-    groundGrad.addColorStop(0, '#14111f');
-    groundGrad.addColorStop(1, '#050308');
-    this.ctx.fillStyle = groundGrad;
+    // Ground Dojo Floor (Solid Color, No Gradients)
+    this.ctx.fillStyle = '#14111f';
     this.ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
 
     // Neon Tatami grid border underglow - flat 2D parallel borders!
@@ -1681,12 +1703,9 @@ export class GameEngine {
     this.ctx.stroke();
     this.ctx.restore();
 
-    // Dojo floor top mahogany frame
+    // Dojo floor top mahogany frame (Solid Color)
     this.ctx.save();
-    const floorMahoganyGrad = this.ctx.createLinearGradient(0, this.groundY, 0, this.groundY + 16);
-    floorMahoganyGrad.addColorStop(0, '#451a03'); // mahogany
-    floorMahoganyGrad.addColorStop(1, '#1c0a00');
-    this.ctx.fillStyle = floorMahoganyGrad;
+    this.ctx.fillStyle = '#451a03';
     this.ctx.fillRect(0, this.groundY, this.width, 16);
     
     // Glowing pink top edge
@@ -1748,27 +1767,17 @@ export class GameEngine {
   }
 
   drawNeonRooftop(midX) {
-    // High-Graphics Cyberpunk Sky (Deep dark blue to hot pink horizon)
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#05030f');
-    skyGrad.addColorStop(0.45, '#120f2b');
-    skyGrad.addColorStop(0.8, '#32163b');
-    skyGrad.addColorStop(1, '#1b0e27');
-    this.ctx.fillStyle = skyGrad;
+    // Solid Cyberpunk Sky (0 Gradients)
+    this.ctx.fillStyle = '#0c0a1d';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // Sweeping searchlights
+    // Sweeping searchlights (Organic Cones)
     this.ctx.save();
     this.ctx.globalCompositeOperation = 'screen';
     const lightTime = Date.now() * 0.001;
     
     const drawSearchlight = (x, y, angle, length, color) => {
-      const grad = this.ctx.createLinearGradient(x, y, x + Math.sin(angle) * length * 0.8, y - Math.cos(angle) * length * 0.8);
-      grad.addColorStop(0, color);
-      grad.addColorStop(0.5, 'rgba(0, 240, 255, 0.08)');
-      grad.addColorStop(1, 'rgba(0, 240, 255, 0)');
-      
-      this.ctx.fillStyle = grad;
+      this.ctx.fillStyle = color;
       this.ctx.beginPath();
       this.ctx.moveTo(x - 5, y);
       this.ctx.lineTo(x + 5, y);
@@ -1778,20 +1787,17 @@ export class GameEngine {
       this.ctx.fill();
     };
     
-    drawSearchlight(this.width * 0.25, this.groundY, Math.sin(lightTime * 0.6) * 0.4 - 0.2, 380, 'rgba(0, 240, 255, 0.15)');
-    drawSearchlight(this.width * 0.75, this.groundY, Math.cos(lightTime * 0.5) * 0.4 + 0.2, 400, 'rgba(236, 72, 153, 0.12)');
+    drawSearchlight(this.width * 0.25, this.groundY, Math.sin(lightTime * 0.6) * 0.4 - 0.2, 380, 'rgba(0, 240, 255, 0.08)');
+    drawSearchlight(this.width * 0.75, this.groundY, Math.cos(lightTime * 0.5) * 0.4 + 0.2, 400, 'rgba(236, 72, 153, 0.08)');
     this.ctx.restore();
 
-    // Glowing Holographic Neon Dragon in sky (undulating wave animation)
+    // Glowing Holographic Neon Dragon in sky (Organic wave path)
     this.ctx.save();
     const holoTime = Date.now() * 0.003;
-    this.ctx.globalAlpha = 0.07 + Math.sin(holoTime) * 0.03; // pulsing holo opacity
-    this.ctx.shadowBlur = 3;
-    this.ctx.shadowColor = '#00f0ff';
+    this.ctx.globalAlpha = 0.08 + Math.sin(holoTime) * 0.03;
     this.ctx.strokeStyle = '#00f0ff';
     this.ctx.lineWidth = 2.5;
     
-    // Draw slithering dragon wave path in sky
     this.ctx.beginPath();
     this.ctx.moveTo(this.width * 0.2, 110 + Math.sin(holoTime) * 12);
     this.ctx.bezierCurveTo(
@@ -1806,70 +1812,68 @@ export class GameEngine {
     );
     this.ctx.stroke();
     
-    // Dragon head whisker circle detail
     this.ctx.beginPath();
     this.ctx.arc(this.width * 0.85, 110 + Math.sin(holoTime * 1.2) * 10, 8, 0, Math.PI * 2);
     this.ctx.stroke();
     this.ctx.restore();
 
-    // Parallax background buildings with neon window matrices
+    // Futuristic Organic Dome & Spire Silhouettes (No Blocky Rectangles)
     this.ctx.save();
-    const handleBuilding = (x, w, h, baseColor, neonColor) => {
-      // Silhouette shadow (acts as off window background)
+    const drawDomeSpire = (x, w, h, baseColor, neonColor) => {
       this.ctx.fillStyle = baseColor;
-      this.ctx.fillRect(x, this.groundY - h, w, h);
-      
-      // Batch all glowing windows to minimize canvas fillStyle state changes!
-      this.ctx.save();
-      this.ctx.fillStyle = neonColor;
-      this.ctx.globalAlpha = 0.35;
-      
+      // Curved dome silhouette
       this.ctx.beginPath();
-      const flickerTime = Math.floor(Date.now() / 900);
-      for (let wx = x + 15; wx < x + w - 15; wx += 22) {
-        for (let wy = this.groundY - h + 20; wy < this.groundY - 15; wy += 35) {
-          // Fast pseudo-random flickering without expensive trigonometric functions
-          const hash = (wx * 17 + wy * 31 + flickerTime) % 100;
-          if (hash > 40) {
-            this.ctx.rect(wx, wy, 8, 15);
-          }
-        }
-      }
+      this.ctx.moveTo(x - w * 0.5, this.groundY);
+      this.ctx.lineTo(x - w * 0.5, this.groundY - h * 0.7);
+      this.ctx.quadraticCurveTo(x, this.groundY - h * 1.15, x + w * 0.5, this.groundY - h * 0.7);
+      this.ctx.lineTo(x + w * 0.5, this.groundY);
+      this.ctx.closePath();
       this.ctx.fill();
-      this.ctx.restore();
+
+      // Top antenna spire needle
+      this.ctx.strokeStyle = neonColor;
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, this.groundY - h * 0.95);
+      this.ctx.lineTo(x, this.groundY - h - 35);
+      this.ctx.stroke();
+
+      // Glowing circular beacon node
+      this.ctx.fillStyle = neonColor;
+      this.ctx.beginPath();
+      this.ctx.arc(x, this.groundY - h - 35, 3.5, 0, Math.PI * 2);
+      this.ctx.fill();
     };
-    // Far back layer
-    handleBuilding(15, 100, 240, '#0c071d', 'rgba(0, 240, 255, 0.45)');
-    handleBuilding(160, 120, 200, '#0a0518', 'rgba(236, 72, 153, 0.45)');
-    handleBuilding(320, 140, 280, '#070311', 'rgba(0, 240, 255, 0.45)');
-    handleBuilding(510, 150, 250, '#0b0619', 'rgba(253, 224, 71, 0.4)');
-    handleBuilding(700, 110, 210, '#090414', 'rgba(236, 72, 153, 0.45)');
-    handleBuilding(850, 100, 270, '#0c071c', 'rgba(0, 240, 255, 0.45)');
+
+    drawDomeSpire(this.width * 0.12, 90, 240, '#0c071d', '#00f0ff');
+    drawDomeSpire(this.width * 0.28, 110, 200, '#0a0518', '#ec4899');
+    drawDomeSpire(midX, 140, 280, '#070311', '#00f0ff');
+    drawDomeSpire(this.width * 0.72, 120, 230, '#0b0619', '#fde047');
+    drawDomeSpire(this.width * 0.88, 100, 260, '#0c071c', '#00f0ff');
     this.ctx.restore();
 
-    // Giant neon billboard (Hot pink & Cyberpunk cyan glow)
+    // Circular Neon Sign Emblem
     this.ctx.save();
     const billboardTime = Date.now();
     const isGlitched = (billboardTime % 4500) < 150 || (billboardTime % 7000) < 80;
     const glitchText = isGlitched ? 'S RIK ' : 'STRIKE';
     
-    this.ctx.shadowBlur = isGlitched ? 2 : 6;
-    this.ctx.shadowColor = isGlitched ? '#00f0ff' : '#ec4899';
     this.ctx.strokeStyle = isGlitched ? '#00f0ff' : '#ec4899';
     this.ctx.lineWidth = 3.5;
-    this.ctx.strokeRect(midX - 100, 60, 200, 70);
-    this.ctx.fillStyle = isGlitched ? 'rgba(0, 240, 255, 0.1)' : 'rgba(236, 72, 153, 0.15)';
-    this.ctx.fillRect(midX - 100, 60, 200, 70);
+    this.ctx.beginPath();
+    this.ctx.arc(midX, 95, 48, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.fillStyle = isGlitched ? 'rgba(0, 240, 255, 0.15)' : 'rgba(236, 72, 153, 0.18)';
+    this.ctx.fill();
     
-    // Neon lettering inside
     this.ctx.fillStyle = isGlitched ? '#e0f2fe' : '#fdf2f8';
-    this.ctx.font = 'bold 36px "Inter", "Outfit", sans-serif';
+    this.ctx.font = 'bold 22px "Inter", "Outfit", sans-serif';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(glitchText, midX, 95);
     this.ctx.restore();
 
-    // Vent steam animation
+    // Vent steam animation (Organic Circles)
     this.ctx.save();
     this.ctx.fillStyle = 'rgba(244, 244, 245, 0.08)';
     const ventTime = Date.now() * 0.003;
@@ -1884,14 +1888,8 @@ export class GameEngine {
         this.ctx.fill();
       }
     };
-    // Vent 1
-    this.ctx.fillStyle = '#1e293b';
-    this.ctx.fillRect(this.width * 0.12, this.groundY - 30, 8, 30); // vent pipe
-    drawSteam(this.width * 0.12 + 4, this.groundY - 30);
-    // Vent 2
-    this.ctx.fillStyle = '#1e293b';
-    this.ctx.fillRect(this.width * 0.88, this.groundY - 45, 10, 45); // vent pipe
-    drawSteam(this.width * 0.88 + 5, this.groundY - 45);
+    drawSteam(this.width * 0.12, this.groundY - 30);
+    drawSteam(this.width * 0.88, this.groundY - 45);
     this.ctx.restore();
 
     // High-Graphics Concrete Roof floor (Flat 2D cross-section)
@@ -1968,12 +1966,8 @@ export class GameEngine {
   }
 
   drawZenGarden(midX) {
-    // Emerald green-teal to deep space sky
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#040b08');
-    skyGrad.addColorStop(0.45, '#091e17');
-    skyGrad.addColorStop(1, '#050c09');
-    this.ctx.fillStyle = skyGrad;
+    // Solid Matte Zen Sky (No Gradients)
+    this.ctx.fillStyle = '#050c09';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     // Glowing Full Moon in the center-top (optimized concentric halos instead of expensive shadowBlur)
@@ -2208,12 +2202,8 @@ export class GameEngine {
     const time = Date.now() * 0.003;
     const wave = Math.sin(time) * 4;
 
-    // Deep crimson cavern sky
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    skyGrad.addColorStop(0, '#1c0303');
-    skyGrad.addColorStop(0.5, '#450a0a');
-    skyGrad.addColorStop(1, '#0e0202');
-    this.ctx.fillStyle = skyGrad;
+    // Deep crimson cavern sky (Solid Color, No Gradients)
+    this.ctx.fillStyle = '#1c0303';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     // Pulsing Cavern Wall Crystals
@@ -2417,18 +2407,8 @@ export class GameEngine {
     // Stormy flash: trigger a sky flash randomly on average every 4 seconds
     const flashTrigger = Math.sin(time) > 0.95;
     
-    // High-Graphics Sky Gradient
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    if (flashTrigger) {
-      skyGrad.addColorStop(0, '#475569'); // bright storm cloud blue-grey
-      skyGrad.addColorStop(0.5, '#cbd5e1');
-      skyGrad.addColorStop(1, '#1e293b');
-    } else {
-      skyGrad.addColorStop(0, '#0b0d1a'); // dark stormy sky
-      skyGrad.addColorStop(0.5, '#0d111d');
-      skyGrad.addColorStop(1, '#111520');
-    }
-    this.ctx.fillStyle = skyGrad;
+    // Solid Stormy Sky (No Gradients)
+    this.ctx.fillStyle = flashTrigger ? '#475569' : '#0b0d1a';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     // Parallax background stormy pagoda tower

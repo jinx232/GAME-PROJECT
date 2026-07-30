@@ -4,11 +4,13 @@ import HUD from './components/HUD';
 import MainMenu from './game/MainMenu';
 import MobileControls from './components/MobileControls';
 import OrientationPrompt from './components/OrientationPrompt';
-import { RotateCcw, Home, Play, Pause, Smartphone, Volume2, VolumeX, Maximize2, Minimize2 } from 'lucide-react';
+import HowToPlayModal from './components/HowToPlayModal';
+import { RotateCcw, Home, Play, Pause, Smartphone, Volume2, VolumeX, Maximize2, Minimize2, HelpCircle } from 'lucide-react';
 
 export default function App() {
   const [inGame, setInGame] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
   const [isRestartTriggered, setIsRestartTriggered] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -234,8 +236,16 @@ export default function App() {
             >
               <Smartphone className="w-4 h-4" />
             </button>
-            {/* Sound Toggle */}
+            {/* Help / How to Play */}
+            <button
+              onClick={() => setIsHowToPlayOpen(true)}
+              className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 font-bold text-xs"
+              title="How to Play & Controls Guide"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
             <div className="w-px h-4 bg-zinc-700" />
+            {/* Sound Toggle */}
             <button
               onClick={toggleSound}
               className={`transition-colors ${isSoundOn ? 'text-amber-400 hover:text-amber-300' : 'text-zinc-600 hover:text-zinc-400'}`}
@@ -252,6 +262,8 @@ export default function App() {
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
+
+          <HowToPlayModal isOpen={isHowToPlayOpen} onClose={() => setIsHowToPlayOpen(false)} />
 
           {/* Virtual mobile controls */}
           {(isTouchDevice || forceTouchControls) && !isPaused && uiState.gameState !== 'gameover' && (
@@ -274,7 +286,15 @@ export default function App() {
 
                 {/* Quick controls reminder */}
                 <div className="mt-4 mb-2 bg-zinc-900/60 border border-zinc-800 rounded-lg p-3 text-left">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2">P1 Controls</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">P1 Controls</p>
+                    <button
+                      onClick={() => setIsHowToPlayOpen(true)}
+                      className="text-[10px] font-bold text-amber-400 hover:underline flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" /> Full Guide
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-zinc-400">
                     <span><kbd className="bg-zinc-800 px-1 rounded text-zinc-300">W</kbd> Jump</span>
                     <span><kbd className="bg-zinc-800 px-1 rounded text-zinc-300">A</kbd>/<kbd className="bg-zinc-800 px-1 rounded text-zinc-300">D</kbd> Move</span>
